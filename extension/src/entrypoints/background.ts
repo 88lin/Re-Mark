@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { getSettings } from '../utils/storage';
-import { getBookmarkTree, flattenBookmarks, buildBookmarkTree, clearAllBookmarks, countBookmarks } from '../utils/bookmarks';
+import { getBookmarkTree, flattenBookmarks, buildBookmarkTree, clearAllBookmarks, countBookmarks, countBookmarkTree } from '../utils/bookmarks';
 import { buildBookmarkFingerprint } from '../utils/bookmarkFingerprint';
 import { fetchGist, updateGist } from '../utils/gist';
 import type { SyncData } from '../types';
@@ -372,8 +372,7 @@ async function handleEnrich() {
 
 async function updateLocalCount() {
   const tree = await getBookmarkTree();
-  const items = await flattenBookmarks(tree);
-  const count = countBookmarks(items);
+  const count = countBookmarkTree(tree);
   await browser.storage.local.set({ localCount: count });
 }
 

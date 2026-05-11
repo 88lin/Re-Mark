@@ -94,6 +94,20 @@ export function countBookmarks(items: BookmarkItem[]): number {
   return items.filter(item => item.url).length;
 }
 
+export function countBookmarkTree(tree: BookmarkTreeNode[]): number {
+  let count = 0;
+
+  function traverse(nodes: BookmarkTreeNode[]) {
+    for (const node of nodes) {
+      if (node.url) count += 1;
+      if (node.children) traverse(node.children);
+    }
+  }
+
+  traverse(tree);
+  return count;
+}
+
 function getChildren(itemMap: Map<string, BookmarkItem>, parentId: string) {
   return Array.from(itemMap.values())
     .filter(i => i.parentId === parentId)

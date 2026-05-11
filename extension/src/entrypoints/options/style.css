@@ -1,8 +1,5 @@
 /* Sketch Theme for Extension Options */
 
-/* 1. Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Patrick+Hand&display=swap');
-
 :root {
   /* Colors */
   --bg-paper: #fdfbf7;
@@ -26,7 +23,7 @@
 }
 
 body {
-  font-family: 'Patrick Hand', cursive;
+  font-family: "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive, sans-serif;
   background-color: var(--bg-paper);
   background-image:
     radial-gradient(#d0d0d0 1px, transparent 1px),
@@ -53,7 +50,7 @@ body {
 }
 
 .options-header h1 {
-  font-family: 'Gloria Hallelujah', cursive;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive, sans-serif;
   font-size: 2.5rem;
   font-weight: 700;
   color: var(--ink-black);
@@ -95,7 +92,7 @@ body {
 }
 
 .card-header h2 {
-  font-family: 'Gloria Hallelujah', cursive;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive, sans-serif;
   font-size: 1.3rem;
   font-weight: 600;
   color: var(--ink-black);
@@ -141,7 +138,7 @@ body {
 
 .field label {
   display: block;
-  font-family: 'Gloria Hallelujah', cursive;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive, sans-serif;
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -151,7 +148,7 @@ body {
 .input-primary {
   width: 100%;
   padding: 0.75rem 1rem;
-  font-family: 'Patrick Hand', cursive;
+  font-family: "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive, sans-serif;
   border: 2px solid var(--ink-black);
   border-radius: 255px 25px 225px 25px / 25px 225px 25px 255px;
   font-size: 1.1rem;
@@ -287,7 +284,7 @@ body {
 
 .checkbox-visual::after {
   content: '✓';
-  font-family: 'Patrick Hand', cursive;
+  font-family: "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive, sans-serif;
   font-size: 1.2rem;
   font-weight: bold;
   color: var(--ink-black);
@@ -315,7 +312,7 @@ body {
 }
 
 .checkbox-title {
-  font-family: 'Gloria Hallelujah', cursive;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive, sans-serif;
   font-weight: 700;
   font-size: 1.1rem;
 }
@@ -379,7 +376,7 @@ body {
   color: var(--ink-black);
   border: 2px solid var(--ink-black);
   border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  font-family: 'Gloria Hallelujah', cursive;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive, sans-serif;
   font-weight: 700;
   font-size: 1.2rem;
   cursor: pointer;
