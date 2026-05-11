@@ -2,37 +2,41 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { getSettings } from '../utils/storage';
 import { getBookmarkTree, flattenBookmarks, buildBookmarkTree, clearAllBookmarks, countBookmarks } from '../utils/bookmarks';
+import { buildBookmarkFingerprint } from '../utils/bookmarkFingerprint';
 import { fetchGist, updateGist } from '../utils/gist';
 import type { SyncData } from '../types';
 
 type Locale = 'en' | 'zh';
 
-const locales: Record<Locale, {
-  missingToken: string;
-  missingTokenAndGist: string;
-  missingWebSettings: string;
-  invalidWebUrl: string;
-  permissionDenied: string;
-  remoteConflictTitle: string;
-  remoteConflictMessage: string;
-  gistCreatedTitle: string;
-  gistCreatedMessage: (gistId: string) => string;
-  uploadSuccessTitle: string;
-  uploadSuccessMessage: (count: number) => string;
-  downloadSuccessTitle: string;
-  downloadSuccessMessage: (count: number) => string;
-  noBookmarksInGist: string;
-  clearSuccessTitle: string;
-  clearSuccessMessage: string;
-  refreshFailedTitle: string;
-  enrichStartedTitle: string;
-  enrichStartedMessage: string;
-  enrichCompletedTitle: string;
-  enrichCompletedMessage: string;
-  enrichStoppedTitle: string;
-  enrichStoppedMessage: (processed: number, remaining: number) => string;
-  enrichFailedTitle: string;
-}> = {
+const locales: Record<
+  Locale,
+  {
+    missingToken: string;
+    missingTokenAndGist: string;
+    missingWebSettings: string;
+    invalidWebUrl: string;
+    permissionDenied: string;
+    remoteConflictTitle: string;
+    remoteConflictMessage: string;
+    gistCreatedTitle: string;
+    gistCreatedMessage: (gistId: string) => string;
+    uploadSuccessTitle: string;
+    uploadSuccessMessage: (count: number) => string;
+    downloadSuccessTitle: string;
+    downloadSuccessMessage: (count: number) => string;
+    noBookmarksInGist: string;
+    clearSuccessTitle: string;
+    clearSuccessMessage: string;
+    refreshFailedTitle: string;
+    enrichStartedTitle: string;
+    enrichStartedMessage: string;
+    enrichCompletedTitle: string;
+    enrichCompletedMessage: string;
+    enrichStoppedTitle: string;
+    enrichStoppedMessage: (processed: number, remaining: number) => string;
+    enrichFailedTitle: string;
+  }
+> = {
   en: {
     missingToken: 'Please configure GitHub Token in settings',
     missingTokenAndGist: 'Please configure GitHub Token and Gist ID',
@@ -87,7 +91,7 @@ const locales: Record<Locale, {
   }
 };
 
-const getLocale = (): Locale => navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+const getLocale = (): Locale => (navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en');
 const localeText = () => locales[getLocale()];
 
 let isSyncing = false;
@@ -96,6 +100,7 @@ const SYNC_ALARM_NAME = 'auto-sync-bookmarks';
 const notificationIcon = '/icon/128.png';
 const BASE_REMOTE_UPDATED_AT_KEY = 'baseRemoteUpdatedAt';
 const REMOTE_UPDATED_AT_KEY = 'remoteUpdatedAt';
+const BASE_LOCAL_FINGERPRINT_KEY = 'baseLocalFingerprint';
 
 const showNotification = async (title: string, message: string) => {
   if (!title?.trim() || !message?.trim()) return;
@@ -126,7 +131,7 @@ export default defineBackground(() => {
     if (action) {
       action()
         .then(() => sendResponse({ success: true }))
-        .catch((err) => {
+        .catch(err => {
           const e = err as any;
           sendResponse({
             success: false,
@@ -144,7 +149,7 @@ export default defineBackground(() => {
   browser.bookmarks.onChanged.addListener(handleBookmarkChange);
   browser.bookmarks.onMoved.addListener(handleBookmarkChange);
 
-  browser.alarms.onAlarm.addListener((alarm) => {
+  browser.alarms.onAlarm.addListener(alarm => {
     if (alarm.name === SYNC_ALARM_NAME) {
       handleUpload(false, 'auto').catch(() => {});
     }
@@ -174,6 +179,17 @@ async function handleUpload(force = false, source: 'manual' | 'auto' = 'manual')
   let finalBadge: { text: string; color: string } | null = null;
 
   try {
+    const tree = await getBookmarkTree();
+    const items = await flattenBookmarks(tree);
+    const localFingerprint = await buildBookmarkFingerprint(items);
+
+    if (source === 'auto') {
+      const { [BASE_LOCAL_FINGERPRINT_KEY]: baseLocalFingerprint } = await browser.storage.local.get([BASE_LOCAL_FINGERPRINT_KEY]);
+      if (typeof baseLocalFingerprint === 'string' && baseLocalFingerprint === localFingerprint) {
+        return;
+      }
+    }
+
     let gistId = settings.gistId;
 
     if (!gistId) {
@@ -183,8 +199,6 @@ async function handleUpload(force = false, source: 'manual' | 'auto' = 'manual')
       await showNotification(locale.gistCreatedTitle, locale.gistCreatedMessage(gistId));
     }
 
-    const tree = await getBookmarkTree();
-    const items = await flattenBookmarks(tree);
     const existingData = await fetchGist(settings.githubToken, gistId).catch(() => null);
 
     if (existingData?.updatedAt) {
@@ -238,7 +252,8 @@ async function handleUpload(force = false, source: 'manual' | 'auto' = 'manual')
     await browser.storage.local.set({
       remoteCount: count,
       [REMOTE_UPDATED_AT_KEY]: syncData.updatedAt,
-      [BASE_REMOTE_UPDATED_AT_KEY]: syncData.updatedAt
+      [BASE_REMOTE_UPDATED_AT_KEY]: syncData.updatedAt,
+      [BASE_LOCAL_FINGERPRINT_KEY]: localFingerprint
     });
     await showNotification(locale.uploadSuccessTitle, locale.uploadSuccessMessage(count));
   } finally {
@@ -271,10 +286,14 @@ async function handleDownload() {
     await buildBookmarkTree(data.items);
 
     const count = countBookmarks(data.items);
+    const localTree = await getBookmarkTree();
+    const localItems = await flattenBookmarks(localTree);
+    const localFingerprint = await buildBookmarkFingerprint(localItems);
     await browser.storage.local.set({
       remoteCount: count,
       [REMOTE_UPDATED_AT_KEY]: data.updatedAt,
-      [BASE_REMOTE_UPDATED_AT_KEY]: data.updatedAt
+      [BASE_REMOTE_UPDATED_AT_KEY]: data.updatedAt,
+      [BASE_LOCAL_FINGERPRINT_KEY]: localFingerprint
     });
     await showNotification(locale.downloadSuccessTitle, locale.downloadSuccessMessage(count));
   } finally {
@@ -369,7 +388,9 @@ async function ensureHostPermission(webUrl: string) {
     throw new Error(locale.invalidWebUrl);
   }
 
-  const hasPermission = await browser.permissions.contains({ origins: [origin] });
+  const hasPermission = await browser.permissions.contains({
+    origins: [origin]
+  });
   if (hasPermission) return;
 
   const granted = await browser.permissions.request({ origins: [origin] });

@@ -20,7 +20,7 @@ export async function flattenBookmarks(tree: BookmarkTreeNode[]): Promise<Bookma
         title: node.title,
         url: node.url,
         order: order++,
-        createdAt: node.dateAdded || Date.now()
+        createdAt: node.dateAdded || 0
       });
       if (node.children) await traverse(node.children, id);
     }
@@ -106,11 +106,11 @@ function resolveRootId(title: string): string | null {
     'bookmarks bar': '1',
     'bookmark bar': '1',
     'bookmark toolbar': '1',
-    '书签栏': '1',
+    书签栏: '1',
     'other bookmarks': '2',
-    '其他书签': '2',
+    其他书签: '2',
     'mobile bookmarks': '3',
-    '移动书签': '3'
+    移动书签: '3'
   };
   return mapping[t] || null;
 }
@@ -121,5 +121,8 @@ async function generateStableId(node: BookmarkTreeNode): Promise<string> {
   const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+  return hashArray
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .substring(0, 16);
 }
