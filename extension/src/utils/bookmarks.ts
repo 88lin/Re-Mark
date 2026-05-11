@@ -30,6 +30,28 @@ export async function flattenBookmarks(tree: BookmarkTreeNode[]): Promise<Bookma
   return items;
 }
 
+export function flattenBookmarkTreeForSearch(tree: BookmarkTreeNode[]): BookmarkItem[] {
+  const items: BookmarkItem[] = [];
+  let order = 0;
+
+  function traverse(nodes: BookmarkTreeNode[], parentId?: string) {
+    for (const node of nodes) {
+      items.push({
+        id: node.id,
+        parentId,
+        title: node.title,
+        url: node.url,
+        order: order++,
+        createdAt: node.dateAdded || 0
+      });
+      if (node.children) traverse(node.children, node.id);
+    }
+  }
+
+  if (tree[0]?.children) traverse(tree[0].children);
+  return items;
+}
+
 export async function buildBookmarkTree(items: BookmarkItem[]): Promise<void> {
   const itemMap = new Map<string, BookmarkItem>();
   items.forEach(item => itemMap.set(item.id, item));
@@ -108,6 +130,16 @@ export function countBookmarkTree(tree: BookmarkTreeNode[]): number {
   return count;
 }
 
+export function searchBookmarkItems(items: BookmarkItem[], query: string, limit = 6): BookmarkItem[] {
+  const keyword = query.trim().toLowerCase();
+  if (!keyword) return [];
+
+  return items
+    .filter(item => item.url && matchesBookmarkItem(item, keyword))
+    .sort((a, b) => a.order - b.order)
+    .slice(0, limit);
+}
+
 function getChildren(itemMap: Map<string, BookmarkItem>, parentId: string) {
   return Array.from(itemMap.values())
     .filter(i => i.parentId === parentId)
@@ -127,6 +159,20 @@ function resolveRootId(title: string): string | null {
     移动书签: '3'
   };
   return mapping[t] || null;
+}
+
+function matchesBookmarkItem(item: BookmarkItem, keyword: string): boolean {
+  const searchableText = [
+    item.title,
+    item.url,
+    item.ai?.summary,
+    ...(item.ai?.tags ?? [])
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return searchableText.includes(keyword);
 }
 
 async function generateStableId(node: BookmarkTreeNode): Promise<string> {

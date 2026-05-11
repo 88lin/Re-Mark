@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
+import type { BookmarkItem } from '../../types';
+import { flattenBookmarkTreeForSearch, getBookmarkTree, searchBookmarkItems } from '../../utils/bookmarks';
 import { getSettings } from '../../utils/storage';
 import './style.css';
 
@@ -25,6 +27,12 @@ const Icons = {
   Bookmark: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
   ),
+  Search: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+  ),
+  External: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+  ),
   Help: () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
   )
@@ -44,7 +52,11 @@ const locales = {
     settings: 'Settings',
     confirmOverwrite: 'Remote was updated since your last sync. Overwrite remote with your local bookmarks?',
     confirmClear: 'Clear all local bookmarks?',
-    processing: 'Processing...'
+    processing: 'Processing...',
+    searchPlaceholder: 'Search local bookmarks',
+    searching: 'Searching...',
+    noSearchResults: 'No matching bookmarks',
+    searchFailed: 'Failed to search bookmarks'
   },
   zh: {
     subtitle: '普通的高级书签',
@@ -59,7 +71,11 @@ const locales = {
     settings: '设置',
     confirmOverwrite: '检测到远端在你上次同步后已更新，是否仍要强制上传覆盖远端？',
     confirmClear: '确定清空本地所有书签？',
-    processing: '处理中...'
+    processing: '处理中...',
+    searchPlaceholder: '搜索本地书签',
+    searching: '搜索中...',
+    noSearchResults: '没有匹配的书签',
+    searchFailed: '搜索书签失败'
   }
 };
 
@@ -69,11 +85,49 @@ export default function App() {
   const [counts, setCounts] = useState({ local: 0, remote: 0 });
   const [loading, setLoading] = useState(false);
   const [hasWebIntegration, setHasWebIntegration] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<BookmarkItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   useEffect(() => {
     loadCounts();
     checkWebIntegration();
   }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError('');
+      return;
+    }
+
+    let isActive = true;
+    setSearchLoading(true);
+    setSearchError('');
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const tree = await getBookmarkTree();
+        const items = flattenBookmarkTreeForSearch(tree);
+        if (!isActive) return;
+        setSearchResults(searchBookmarkItems(items, query));
+      } catch {
+        if (!isActive) return;
+        setSearchResults([]);
+        setSearchError(t.searchFailed);
+      } finally {
+        if (isActive) setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchQuery, t.searchFailed]);
 
   async function loadCounts() {
     const data = await browser.storage.local.get(['localCount', 'remoteCount']);
@@ -111,6 +165,20 @@ export default function App() {
     }
   }
 
+  async function openBookmark(item: BookmarkItem) {
+    if (!item.url) return;
+    await browser.tabs.create({ url: item.url });
+  }
+
+  function getSearchUrlLabel(url: string) {
+    try {
+      const parsedUrl = new URL(url);
+      return `${parsedUrl.hostname}${parsedUrl.pathname === '/' ? '' : parsedUrl.pathname}`;
+    } catch {
+      return url;
+    }
+  }
+
   return (
     <div className="popup">
       <header className="popup-header">
@@ -130,6 +198,36 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <section className="search-section" aria-label={t.searchPlaceholder}>
+        <div className="search-box">
+          <Icons.Search />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={event => setSearchQuery(event.target.value)}
+            placeholder={t.searchPlaceholder}
+            aria-label={t.searchPlaceholder}
+          />
+        </div>
+
+        {searchQuery.trim() && (
+          <div className="search-results">
+            {searchLoading && <div className="search-status">{t.searching}</div>}
+            {!searchLoading && searchError && <div className="search-status error">{searchError}</div>}
+            {!searchLoading && !searchError && searchResults.length === 0 && <div className="search-status">{t.noSearchResults}</div>}
+            {!searchLoading && !searchError && searchResults.map(item => (
+              <button key={item.id} className="search-result" type="button" onClick={() => openBookmark(item)}>
+                <span className="search-result-main">
+                  <span className="search-result-title">{item.title || item.url}</span>
+                  <span className="search-result-url">{getSearchUrlLabel(item.url ?? '')}</span>
+                </span>
+                <span className="search-result-icon"><Icons.External /></span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="stats-container">
         <div className="stat-card">
