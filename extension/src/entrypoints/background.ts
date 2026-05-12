@@ -4,6 +4,7 @@ import { getSettings } from '../utils/storage';
 import { getBookmarkTree, flattenBookmarks, buildBookmarkTree, clearAllBookmarks, countBookmarks, countBookmarkTree } from '../utils/bookmarks';
 import { buildBookmarkFingerprint } from '../utils/bookmarkFingerprint';
 import { fetchGist, updateGist } from '../utils/gist';
+import { getChangeState, getUploadSkipState, type UploadSource } from '../utils/syncState';
 import type { SyncData } from '../types';
 
 type Locale = 'en' | 'zh';
@@ -22,6 +23,8 @@ const locales: Record<
     gistCreatedMessage: (gistId: string) => string;
     uploadSuccessTitle: string;
     uploadSuccessMessage: (count: number) => string;
+    noChangesTitle: string;
+    noChangesMessage: string;
     downloadSuccessTitle: string;
     downloadSuccessMessage: (count: number) => string;
     noBookmarksInGist: string;
@@ -49,6 +52,8 @@ const locales: Record<
     gistCreatedMessage: gistId => `Auto-created Gist: ${gistId}`,
     uploadSuccessTitle: 'Upload Success',
     uploadSuccessMessage: count => `Uploaded ${count} bookmarks`,
+    noChangesTitle: 'No Changes',
+    noChangesMessage: 'Local bookmarks are unchanged. Nothing was uploaded.',
     downloadSuccessTitle: 'Download Success',
     downloadSuccessMessage: count => `Restored ${count} bookmarks`,
     noBookmarksInGist: 'No bookmarks found in Gist',
@@ -75,6 +80,8 @@ const locales: Record<
     gistCreatedMessage: gistId => `已自动创建 Gist：${gistId}`,
     uploadSuccessTitle: '上传成功',
     uploadSuccessMessage: count => `已上传 ${count} 个书签`,
+    noChangesTitle: '没有改动',
+    noChangesMessage: '本地书签没有变化，未执行上传。',
     downloadSuccessTitle: '下载成功',
     downloadSuccessMessage: count => `已恢复 ${count} 个书签`,
     noBookmarksInGist: 'Gist 中没有书签数据',
@@ -166,7 +173,7 @@ class RemoteConflictError extends Error {
   }
 }
 
-async function handleUpload(force = false, source: 'manual' | 'auto' = 'manual') {
+async function handleUpload(force = false, source: UploadSource = 'manual') {
   const locale = localeText();
   const settings = await getSettings();
 
@@ -182,12 +189,13 @@ async function handleUpload(force = false, source: 'manual' | 'auto' = 'manual')
     const tree = await getBookmarkTree();
     const items = await flattenBookmarks(tree);
     const localFingerprint = await buildBookmarkFingerprint(items);
+    const { [BASE_LOCAL_FINGERPRINT_KEY]: baseLocalFingerprint } = await browser.storage.local.get([BASE_LOCAL_FINGERPRINT_KEY]);
+    const changeState = getChangeState(baseLocalFingerprint, localFingerprint);
+    const skipState = getUploadSkipState(changeState, source);
 
-    if (source === 'auto') {
-      const { [BASE_LOCAL_FINGERPRINT_KEY]: baseLocalFingerprint } = await browser.storage.local.get([BASE_LOCAL_FINGERPRINT_KEY]);
-      if (typeof baseLocalFingerprint === 'string' && baseLocalFingerprint === localFingerprint) {
-        return;
-      }
+    if (skipState.skipUpload) {
+      if (skipState.notifyNoChanges) await showNotification(locale.noChangesTitle, locale.noChangesMessage);
+      return;
     }
 
     let gistId = settings.gistId;
@@ -333,17 +341,33 @@ async function handleRefresh() {
 async function handleBookmarkChange() {
   if (isSyncing) return;
 
-  browser.action.setBadgeText({ text: '!' });
-  browser.action.setBadgeBackgroundColor({ color: '#ef4444' });
-  await updateLocalCount();
+  const changeState = await updateLocalCountAndGetChangeState();
+  if (changeState === 'unchanged') {
+    browser.action.setBadgeText({ text: '' });
+    await browser.alarms.clear(SYNC_ALARM_NAME);
+    return;
+  }
 
   const settings = await getSettings();
+  browser.action.setBadgeText({ text: '!' });
+  browser.action.setBadgeBackgroundColor({ color: '#ef4444' });
+
   if (settings.autoSync) {
     await browser.alarms.clear(SYNC_ALARM_NAME);
     await browser.alarms.create(SYNC_ALARM_NAME, {
       delayInMinutes: settings.syncDelay
     });
   }
+}
+
+async function updateLocalCountAndGetChangeState() {
+  const tree = await getBookmarkTree();
+  const count = countBookmarkTree(tree);
+  await browser.storage.local.set({ localCount: count });
+  const items = await flattenBookmarks(tree);
+  const localFingerprint = await buildBookmarkFingerprint(items);
+  const { [BASE_LOCAL_FINGERPRINT_KEY]: baseLocalFingerprint } = await browser.storage.local.get([BASE_LOCAL_FINGERPRINT_KEY]);
+  return getChangeState(baseLocalFingerprint, localFingerprint);
 }
 
 async function handleEnrich() {
