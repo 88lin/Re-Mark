@@ -11,3 +11,4 @@ bun.lockb
 
 # test files
 web/src/pages/api/test-github.ts
+.firecrawl

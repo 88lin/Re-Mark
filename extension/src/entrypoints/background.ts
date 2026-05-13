@@ -5,6 +5,13 @@ import { getBookmarkTree, flattenBookmarks, buildBookmarkTree, clearAllBookmarks
 import { buildBookmarkFingerprint } from '../utils/bookmarkFingerprint';
 import { fetchGist, updateGist } from '../utils/gist';
 import { getChangeState, getUploadSkipState, type UploadSource } from '../utils/syncState';
+import {
+  createEnrichJob,
+  failEnrichJobStep,
+  finishEnrichJobStep,
+  startEnrichJobStep,
+  type EnrichJobState
+} from '../utils/enrichJob';
 import type { SyncData } from '../types';
 
 type Locale = 'en' | 'zh';
@@ -102,7 +109,12 @@ const getLocale = (): Locale => (navigator.language?.toLowerCase().startsWith('z
 const localeText = () => locales[getLocale()];
 
 let isSyncing = false;
+let isEnrichStepRunning = false;
 const SYNC_ALARM_NAME = 'auto-sync-bookmarks';
+const ENRICH_ALARM_NAME = 'enrich-bookmarks-step';
+const ENRICH_JOB_KEY = 'enrichJob';
+const ENRICH_STEP_DELAY_MS = 30_000;
+const MAX_ENRICH_NO_PROGRESS_STEPS = 3;
 
 const notificationIcon = '/icon/128.png';
 const BASE_REMOTE_UPDATED_AT_KEY = 'baseRemoteUpdatedAt';
@@ -123,7 +135,13 @@ const showNotification = async (title: string, message: string) => {
 };
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(updateLocalCount);
+  browser.runtime.onInstalled.addListener(() => {
+    updateLocalCount().catch(() => {});
+    resumeEnrichJobIfNeeded().catch(() => {});
+  });
+  browser.runtime.onStartup.addListener(() => {
+    resumeEnrichJobIfNeeded().catch(() => {});
+  });
 
   browser.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const actions: Record<string, () => Promise<void>> = {
@@ -159,6 +177,9 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener(alarm => {
     if (alarm.name === SYNC_ALARM_NAME) {
       handleUpload(false, 'auto').catch(() => {});
+    }
+    if (alarm.name === ENRICH_ALARM_NAME) {
+      runEnrichJobStep().catch(() => {});
     }
   });
 });
@@ -378,20 +399,120 @@ async function handleEnrich() {
   if (!settings.webUrl || !settings.apiSecret) throw new Error(locale.missingWebSettings);
 
   await ensureHostPermission(settings.webUrl);
+  const existingJob = await getEnrichJob();
+  const now = Date.now();
+  const nextJob = existingJob && (existingJob.state === 'running' || existingJob.state === 'paused')
+    ? startEnrichJobStep(existingJob, now)
+    : createEnrichJob(now);
+
+  await setEnrichJob(nextJob);
+  await browser.alarms.clear(ENRICH_ALARM_NAME);
+  await scheduleNextEnrichStep(0);
   await showNotification(locale.enrichStartedTitle, locale.enrichStartedMessage);
+}
+
+async function runEnrichJobStep() {
+  if (isEnrichStepRunning) return;
+  isEnrichStepRunning = true;
 
   try {
-    const { runEnrichUntilDone } = await import('../utils/enrich');
-    const result = await runEnrichUntilDone(settings.webUrl, settings.apiSecret);
-
-    if (result.completed || result.remaining === 0) {
-      await showNotification(locale.enrichCompletedTitle, locale.enrichCompletedMessage);
-    } else {
-      await showNotification(locale.enrichStoppedTitle, locale.enrichStoppedMessage(result.processed ?? 0, result.remaining ?? 0));
-    }
-  } catch (err) {
-    await showNotification(locale.enrichFailedTitle, err instanceof Error ? err.message : String(err));
+    await runEnrichJobStepUnsafe();
+  } finally {
+    isEnrichStepRunning = false;
   }
+}
+
+async function runEnrichJobStepUnsafe() {
+  const locale = localeText();
+  const job = await getEnrichJob();
+  if (!job || (job.state !== 'running' && job.state !== 'paused')) return;
+
+  const settings = await getSettings();
+  if (!settings.githubToken || !settings.gistId || !settings.webUrl || !settings.apiSecret) {
+    const failedJob: EnrichJobState = {
+      ...job,
+      state: 'failed',
+      updatedAt: Date.now(),
+      nextRunAt: undefined,
+      lastError: !settings.githubToken || !settings.gistId ? locale.missingTokenAndGist : locale.missingWebSettings
+    };
+    await setEnrichJob(failedJob);
+    await showNotification(locale.enrichFailedTitle, failedJob.lastError ?? locale.enrichFailedTitle);
+    return;
+  }
+
+  const startedJob = startEnrichJobStep(job, Date.now());
+  await setEnrichJob(startedJob);
+
+  try {
+    const { runEnrichStep } = await import('../utils/enrich');
+    const result = await runEnrichStep(settings.webUrl, settings.apiSecret);
+    const nextJob = finishEnrichJobStep(startedJob, result, Date.now(), ENRICH_STEP_DELAY_MS);
+    await setEnrichJob(nextJob);
+
+    if (nextJob.state === 'completed') {
+      await browser.alarms.clear(ENRICH_ALARM_NAME);
+      await showNotification(locale.enrichCompletedTitle, locale.enrichCompletedMessage);
+      return;
+    }
+
+    if ((nextJob.noProgressSteps ?? 0) >= MAX_ENRICH_NO_PROGRESS_STEPS) {
+      const stoppedJob: EnrichJobState = {
+        ...nextJob,
+        state: 'paused',
+        nextRunAt: undefined
+      };
+      await setEnrichJob(stoppedJob);
+      await browser.alarms.clear(ENRICH_ALARM_NAME);
+      await showNotification(locale.enrichStoppedTitle, locale.enrichStoppedMessage(stoppedJob.processed, stoppedJob.remaining));
+      return;
+    }
+
+    if (result.timedOut || (result.processed ?? 0) > 0) {
+      await scheduleNextEnrichStep(ENRICH_STEP_DELAY_MS);
+      return;
+    }
+
+    const stoppedJob: EnrichJobState = {
+      ...nextJob,
+      state: 'paused',
+      nextRunAt: undefined
+    };
+    await setEnrichJob(stoppedJob);
+    await browser.alarms.clear(ENRICH_ALARM_NAME);
+    await showNotification(locale.enrichStoppedTitle, locale.enrichStoppedMessage(stoppedJob.processed, stoppedJob.remaining));
+  } catch (err) {
+    const failedJob = failEnrichJobStep(startedJob, err instanceof Error ? err.message : String(err), Date.now());
+    await setEnrichJob(failedJob);
+    await scheduleNextEnrichStep(Math.max(0, (failedJob.nextRunAt ?? Date.now()) - Date.now()));
+  }
+}
+
+async function getEnrichJob(): Promise<EnrichJobState | null> {
+  const data = await browser.storage.local.get([ENRICH_JOB_KEY]);
+  return (data[ENRICH_JOB_KEY] as EnrichJobState | undefined) ?? null;
+}
+
+async function setEnrichJob(job: EnrichJobState) {
+  await browser.storage.local.set({ [ENRICH_JOB_KEY]: job });
+}
+
+async function scheduleNextEnrichStep(delayMs: number) {
+  if (delayMs <= 0) {
+    runEnrichJobStep().catch(() => {});
+    return;
+  }
+
+  await browser.alarms.create(ENRICH_ALARM_NAME, {
+    delayInMinutes: Math.max(delayMs / 60_000, 0.5)
+  });
+}
+
+async function resumeEnrichJobIfNeeded() {
+  const job = await getEnrichJob();
+  if (!job || (job.state !== 'running' && job.state !== 'paused')) return;
+
+  await scheduleNextEnrichStep(Math.max(0, (job.nextRunAt ?? Date.now()) - Date.now()));
 }
 
 async function updateLocalCount() {

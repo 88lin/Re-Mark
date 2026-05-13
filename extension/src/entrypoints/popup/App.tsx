@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
 import type { BookmarkItem } from '../../types';
 import { flattenBookmarkTreeForSearch, getBookmarkTree, searchBookmarkItems } from '../../utils/bookmarks';
+import type { EnrichJobState } from '../../utils/enrichJob';
 import { getSettings } from '../../utils/storage';
 import './style.css';
 
@@ -56,7 +57,11 @@ const locales = {
     searchPlaceholder: 'Search local bookmarks',
     searching: 'Searching...',
     noSearchResults: 'No matching bookmarks',
-    searchFailed: 'Failed to search bookmarks'
+    searchFailed: 'Failed to search bookmarks',
+    enrichRunning: (processed: number, remaining: number) => `Enriching ${processed} done, ${remaining} left`,
+    enrichPaused: (remaining: number) => `Enrich paused, ${remaining} left`,
+    enrichCompleted: (processed: number) => `Enrich complete, ${processed} done`,
+    enrichFailed: 'Enrich failed'
   },
   zh: {
     subtitle: '普通的高级书签',
@@ -75,7 +80,11 @@ const locales = {
     searchPlaceholder: '搜索本地书签',
     searching: '搜索中...',
     noSearchResults: '没有匹配的书签',
-    searchFailed: '搜索书签失败'
+    searchFailed: '搜索书签失败',
+    enrichRunning: (processed: number, remaining: number) => `富化中：已处理 ${processed}，剩余 ${remaining}`,
+    enrichPaused: (remaining: number) => `富化已暂停，剩余 ${remaining}`,
+    enrichCompleted: (processed: number) => `富化完成，已处理 ${processed}`,
+    enrichFailed: '富化失败'
   }
 };
 
@@ -89,10 +98,22 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<BookmarkItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [enrichJob, setEnrichJob] = useState<EnrichJobState | null>(null);
 
   useEffect(() => {
     loadCounts();
     checkWebIntegration();
+    loadEnrichJob();
+  }, []);
+
+  useEffect(() => {
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      if (areaName !== 'local' || !changes.enrichJob) return;
+      setEnrichJob((changes.enrichJob.newValue as EnrichJobState | undefined) ?? null);
+    };
+
+    browser.storage.onChanged.addListener(listener);
+    return () => browser.storage.onChanged.removeListener(listener);
   }, []);
 
   useEffect(() => {
@@ -139,6 +160,11 @@ export default function App() {
     setHasWebIntegration(!!(settings.webUrl && settings.apiSecret));
   }
 
+  async function loadEnrichJob() {
+    const data = await browser.storage.local.get(['enrichJob']);
+    setEnrichJob((data.enrichJob as EnrichJobState | undefined) ?? null);
+  }
+
   async function runAction(action: string, payload?: Record<string, unknown>) {
     return await browser.runtime.sendMessage({ action, ...(payload ?? {}) });
   }
@@ -157,6 +183,7 @@ export default function App() {
       }
 
       if (!response.success && !skipAlert) alert(response.error);
+      if (action === 'enrich') await loadEnrichJob();
       await loadCounts();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Action failed');
@@ -178,6 +205,16 @@ export default function App() {
       return url;
     }
   }
+
+  function getEnrichStatusText() {
+    if (!enrichJob || enrichJob.state === 'idle') return '';
+    if (enrichJob.state === 'running') return t.enrichRunning(enrichJob.processed, enrichJob.remaining);
+    if (enrichJob.state === 'paused') return t.enrichPaused(enrichJob.remaining);
+    if (enrichJob.state === 'completed') return t.enrichCompleted(enrichJob.processed);
+    return enrichJob.lastError ? `${t.enrichFailed}: ${enrichJob.lastError}` : t.enrichFailed;
+  }
+
+  const enrichStatusText = getEnrichStatusText();
 
   return (
     <div className="popup">
@@ -266,6 +303,12 @@ export default function App() {
           </button>
         )}
       </div>
+
+      {hasWebIntegration && enrichStatusText && (
+        <div className={`enrich-status ${enrichJob?.state ?? 'idle'}`}>
+          {enrichStatusText}
+        </div>
+      )}
 
       <footer className="popup-footer">
         <button className="text-btn danger" onClick={() => confirm(t.confirmClear) && handleAction('clear')} disabled={loading}>

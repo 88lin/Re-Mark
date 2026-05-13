@@ -389,6 +389,34 @@ body {
   background: #fff;
 }
 
+.enrich-status {
+  background: #fff;
+  border: 2px dashed var(--ink-black);
+  border-radius: 18px 12px 16px 10px / 10px 18px 12px 16px;
+  box-shadow: var(--shadow-hard);
+  color: var(--ink-black);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: -0.5rem;
+  padding: 0.625rem 0.75rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.enrich-status.paused {
+  border-color: #f59e0b;
+}
+
+.enrich-status.completed {
+  border-color: var(--success-green);
+}
+
+.enrich-status.failed {
+  border-color: var(--danger-red);
+  color: var(--danger-red);
+}
+
 /* Footer */
 .popup-footer {
   display: flex;
