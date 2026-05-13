@@ -1,3 +1,5 @@
+export type ThemeName = 'brutalist' | 'editorial' | 'terminal' | 'minimal' | 'glass';
+
 export interface BookmarkItem {
   id: string;
   parentId?: string;
@@ -32,4 +34,5 @@ export interface Settings {
   webUrl: string;
   autoSync: boolean;
   syncDelay: number;
+  theme: ThemeName;
 }

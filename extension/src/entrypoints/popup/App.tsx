@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
-import type { BookmarkItem } from '../../types';
+import type { BookmarkItem, ThemeName } from '../../types';
 import { flattenBookmarkTreeForSearch, getBookmarkTree, searchBookmarkItems } from '../../utils/bookmarks';
 import type { EnrichJobState } from '../../utils/enrichJob';
 import { getSettings } from '../../utils/storage';
@@ -25,9 +25,6 @@ const Icons = {
   Settings: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
   ),
-  Bookmark: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-  ),
   Search: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
   ),
@@ -42,8 +39,36 @@ const Icons = {
 const locales = {
   en: {
     subtitle: 'Ordinary Advanced Bookmarks',
+    bookmarkManager: 'Bookmark Manager',
     local: 'Local',
     remote: 'Remote',
+    localTotal: 'Saved Total',
+    remoteStorage: 'Remote Store',
+    localTag: 'LOCAL',
+    remoteTag: 'REMOTE',
+    savedBookmarks: 'Saved bookmarks',
+    syncedBookmarks: 'Synced bookmarks',
+    saved: 'Saved',
+    synced: 'Synced',
+    uploadSlash: 'Upload / UPLOAD',
+    downloadSlash: 'Download / DOWNLOAD',
+    uploadToRemote: 'Upload to remote',
+    downloadFromRemote: 'Download from remote',
+    terminalTitle: 're-mark - bash - 80x24',
+    terminalSync: 'sync',
+    terminalConfig: 'cfg',
+    terminalLocalComment: 'bookmarks',
+    terminalRemoteComment: 'synced',
+    terminalStatus: 'status',
+    terminalInSync: 'in sync',
+    terminalUpload: 'upload',
+    terminalDownload: 'download',
+    terminalEnrich: 'enrich',
+    terminalClearPath: './local/bookmarks',
+    minimalKicker: 'BOOKMARK ARCHIVE',
+    minimalLocal: 'Local bookmarks',
+    minimalRemote: 'Remote sync',
+    minimalVolume: 'Volume I',
     remoteTip: 'Remote count updates only after Refresh, Upload, Download, or Auto-sync completes.',
     refresh: 'Refresh',
     upload: 'Upload',
@@ -65,8 +90,36 @@ const locales = {
   },
   zh: {
     subtitle: '普通的高级书签',
+    bookmarkManager: '书签管理器',
     local: '本地',
     remote: '远端',
+    localTotal: '书签总数',
+    remoteStorage: '远端存储',
+    localTag: 'LOCAL',
+    remoteTag: 'REMOTE',
+    savedBookmarks: '已保存书签',
+    syncedBookmarks: '已同步书签',
+    saved: '已保存',
+    synced: '已同步',
+    uploadSlash: '上传 / UPLOAD',
+    downloadSlash: '下载 / DOWNLOAD',
+    uploadToRemote: '上传至远端',
+    downloadFromRemote: '从远端下载',
+    terminalTitle: 're-mark - bash - 80x24',
+    terminalSync: 'sync',
+    terminalConfig: 'cfg',
+    terminalLocalComment: 'bookmarks',
+    terminalRemoteComment: 'synced',
+    terminalStatus: 'status',
+    terminalInSync: 'in sync',
+    terminalUpload: '上传',
+    terminalDownload: '下载',
+    terminalEnrich: '富化',
+    terminalClearPath: './local/bookmarks',
+    minimalKicker: '書　籤　管　理',
+    minimalLocal: '本地书签',
+    minimalRemote: '远端同步',
+    minimalVolume: '卷之一',
     remoteTip: '远端数量仅在刷新、上传、下载或自动同步完成后更新。',
     refresh: '刷新',
     upload: '上传',
@@ -99,17 +152,23 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [enrichJob, setEnrichJob] = useState<EnrichJobState | null>(null);
+  const [theme, setTheme] = useState<ThemeName>('brutalist');
 
   useEffect(() => {
     loadCounts();
-    checkWebIntegration();
+    loadSettings();
     loadEnrichJob();
   }, []);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
-      if (areaName !== 'local' || !changes.enrichJob) return;
-      setEnrichJob((changes.enrichJob.newValue as EnrichJobState | undefined) ?? null);
+      if (areaName !== 'local') return;
+      if (changes.enrichJob) setEnrichJob((changes.enrichJob.newValue as EnrichJobState | undefined) ?? null);
+      if (changes.theme?.newValue) setTheme(changes.theme.newValue as ThemeName);
     };
 
     browser.storage.onChanged.addListener(listener);
@@ -155,9 +214,10 @@ export default function App() {
     setCounts({ local: data.localCount || 0, remote: data.remoteCount || 0 });
   }
 
-  async function checkWebIntegration() {
+  async function loadSettings() {
     const settings = await getSettings();
     setHasWebIntegration(!!(settings.webUrl && settings.apiSecret));
+    setTheme(settings.theme);
   }
 
   async function loadEnrichJob() {
@@ -215,15 +275,58 @@ export default function App() {
   }
 
   const enrichStatusText = getEnrichStatusText();
+  const version = browser.runtime.getManifest().version;
 
-  return (
-    <div className="popup">
+  function getSearchPlaceholder() {
+    if (theme === 'brutalist') return 'SEARCH BOOKMARKS_';
+    if (theme === 'terminal') return 'search bookmarks...';
+    if (theme === 'minimal') return locale === 'zh' ? '検索・搜寻书签' : 'search archive';
+    if (theme === 'glass') return locale === 'zh' ? '搜索书签' : 'Search bookmarks';
+    return t.searchPlaceholder;
+  }
+
+  function renderBrandTitle() {
+    if (theme === 'brutalist') return <>Re<span>:</span>Mark</>;
+    if (theme === 'minimal') return <>Re:<span>Mark</span></>;
+    return <>Re<span>:Mark</span></>;
+  }
+
+  function renderHeader() {
+    if (theme === 'terminal') {
+      return (
+        <header className="popup-header">
+          <div className="terminal-header">
+            <div className="terminal-bar">
+              <span className="terminal-dot red"></span>
+              <span className="terminal-dot yellow"></span>
+              <span className="terminal-dot green"></span>
+              <span className="terminal-title">{t.terminalTitle}</span>
+              <div className="header-actions terminal-actions">
+                <button className="icon-btn header-command-btn" onClick={() => handleAction('refresh')} title={t.refresh} disabled={loading}>
+                  {t.terminalSync}
+                </button>
+                <button className="icon-btn header-command-btn" onClick={() => browser.runtime.openOptionsPage()} title={t.settings}>
+                  {t.terminalConfig}
+                </button>
+              </div>
+            </div>
+            <div className="terminal-brand-line">
+              <span className="terminal-prompt">~$</span>
+              <h1>re<span>:</span>mark</h1>
+              <span className="terminal-cursor"></span>
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    return (
       <header className="popup-header">
         <div className="logo-area">
-          <img src="/icon/48.png" className="logo-image" alt="Re:Mark" />
-          <div>
-            <h1>Re:Mark<span style={{ color: '#e74c3c', fontSize: '2rem', lineHeight: 0.5 }}>.</span></h1>
-            <p>{t.subtitle}</p>
+          {(theme === 'editorial' || theme === 'glass') && <img src="/icon/48.png" className="logo-image" alt="Re:Mark" />}
+          <div className="brand-copy">
+            <h1>{renderBrandTitle()}</h1>
+            <p>{theme === 'brutalist' ? t.bookmarkManager : theme === 'minimal' ? t.minimalKicker : t.subtitle}</p>
           </div>
         </div>
         <div className="header-actions">
@@ -235,15 +338,19 @@ export default function App() {
           </button>
         </div>
       </header>
+    );
+  }
 
+  function renderSearch() {
+    return (
       <section className="search-section" aria-label={t.searchPlaceholder}>
         <div className="search-box">
-          <Icons.Search />
+          <span className="search-icon"><Icons.Search /></span>
           <input
             type="search"
             value={searchQuery}
             onChange={event => setSearchQuery(event.target.value)}
-            placeholder={t.searchPlaceholder}
+            placeholder={getSearchPlaceholder()}
             aria-label={t.searchPlaceholder}
           />
         </div>
@@ -265,43 +372,169 @@ export default function App() {
           </div>
         )}
       </section>
+    );
+  }
 
+  function getStatLabel(kind: 'local' | 'remote') {
+    if (theme === 'brutalist') return kind === 'local' ? t.localTotal : t.remoteStorage;
+    if (theme === 'minimal') return kind === 'local' ? t.minimalLocal : t.minimalRemote;
+    return kind === 'local' ? t.local : t.remote;
+  }
+
+  function getStatSub(kind: 'local' | 'remote') {
+    if (theme === 'glass') return kind === 'local' ? t.saved : t.synced;
+    return kind === 'local' ? t.savedBookmarks : t.syncedBookmarks;
+  }
+
+  function renderStats() {
+    if (theme === 'brutalist') {
+      return (
+        <div className="stats-container">
+          {(['local', 'remote'] as const).map(kind => (
+            <div key={kind} className={`stat-card ${kind}`} title={kind === 'remote' ? t.remoteTip : undefined}>
+              <span className="stat-value">{kind === 'local' ? counts.local : counts.remote}</span>
+              <span className="stat-label">{getStatLabel(kind)}</span>
+              <span className={`stat-tag ${kind}`}>{kind === 'local' ? t.localTag : t.remoteTag}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (theme === 'terminal') {
+      return (
+        <div className="stats-container terminal-stats">
+          <div className="terminal-stat-line">
+            <span className="terminal-stat-key">local.count</span>
+            <span className="terminal-comment">//</span>
+            <span className="terminal-stat-value">{counts.local}</span>
+            <span className="terminal-comment">{t.terminalLocalComment}</span>
+          </div>
+          <div className="terminal-stat-line">
+            <span className="terminal-stat-key">remote.count</span>
+            <span className="terminal-comment">//</span>
+            <span className="terminal-stat-value remote">{counts.remote}</span>
+            <span className="terminal-comment">{t.terminalRemoteComment}</span>
+          </div>
+          <div className="terminal-divider">---------------------------------</div>
+          <div className="terminal-stat-line compact">
+            <span className="terminal-stat-key">{t.terminalStatus}</span>
+            <span className="terminal-state-dot"></span>
+            <span className="terminal-stat-value">{t.terminalInSync}</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
       <div className="stats-container">
-        <div className="stat-card">
-          <div className="stat-icon local"><Icons.Bookmark /></div>
-          <div className="stat-info">
-            <span className="stat-value">{counts.local}</span>
-            <span className="stat-label">{t.local}</span>
+        {(['local', 'remote'] as const).map(kind => (
+          <div key={kind} className={`stat-card ${kind}`} title={kind === 'remote' ? t.remoteTip : undefined}>
+            <span className={`stat-mark ${kind}`}></span>
+            <div className="stat-header">
+              <span className="stat-label">{getStatLabel(kind)} {kind === 'remote' && <span className="icon-help"><Icons.Help /></span>}</span>
+              <span className={`stat-badge ${kind}`}></span>
+            </div>
+            <span className="stat-value">{kind === 'local' ? counts.local : counts.remote}</span>
+            <span className="stat-sub">{getStatSub(kind)}</span>
+            <span className={`stat-tag ${kind}`}>{kind === 'local' ? t.localTag : t.remoteTag}</span>
           </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon remote">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-          </div>
-          <div className="stat-info">
-            <span className="stat-value">{counts.remote}</span>
-            <span className="stat-label" title={t.remoteTip}>{t.remote} <span className="icon-help"><Icons.Help /></span></span>
-          </div>
-        </div>
+        ))}
       </div>
+    );
+  }
 
-      <div className="actions-grid">
-        <button className="action-card primary" onClick={() => handleAction('upload')} disabled={loading}>
-          <div className="action-icon"><Icons.Upload /></div>
-          <span>{loading ? t.processing : t.upload}</span>
-        </button>
+  function getActionLabel(action: 'upload' | 'download' | 'enrich') {
+    if (loading) return t.processing;
+    if (action === 'enrich') return t.enrich;
+    if (theme === 'brutalist') return action === 'upload' ? t.uploadSlash : t.downloadSlash;
+    if (theme === 'editorial') return action === 'upload' ? t.uploadToRemote : t.downloadFromRemote;
+    if (theme === 'minimal' && locale === 'zh') return action === 'upload' ? '上　传' : '下　载';
+    return action === 'upload' ? t.upload : t.download;
+  }
 
-        <button className="action-card secondary" onClick={() => handleAction('download')} disabled={loading}>
-          <div className="action-icon"><Icons.Download /></div>
-          <span>{loading ? t.processing : t.download}</span>
-        </button>
+  function renderTerminalAction(action: 'upload' | 'download' | 'enrich') {
+    if (action === 'upload') {
+      return (
+        <>
+          <span className="command-name">push</span>
+          <span className="command-flag">--remote</span>
+          <span>origin</span>
+          <span className="command-desc">{t.terminalUpload}</span>
+        </>
+      );
+    }
 
-        {hasWebIntegration && (
-          <button className="action-card full-width enrich" onClick={() => handleAction('enrich')} disabled={loading}>
-            <div className="action-icon"><Icons.Enrich /></div>
-            <span>{loading ? t.processing : t.enrich}</span>
-          </button>
+    if (action === 'download') {
+      return (
+        <>
+          <span className="command-name">pull</span>
+          <span className="command-flag">--force</span>
+          <span>origin</span>
+          <span className="command-desc">{t.terminalDownload}</span>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <span className="command-name">enrich</span>
+        <span className="command-flag">--ai</span>
+        <span>local</span>
+        <span className="command-desc">{t.terminalEnrich}</span>
+      </>
+    );
+  }
+
+  function renderActionButton(action: 'upload' | 'download' | 'enrich') {
+    const className = action === 'upload' ? 'action-card primary upload' : action === 'download' ? 'action-card secondary download' : 'action-card full-width enrich';
+    const actionName = action === 'upload' ? 'upload' : action === 'download' ? 'download' : 'enrich';
+    const icon = action === 'upload' ? <Icons.Upload /> : action === 'download' ? <Icons.Download /> : <Icons.Enrich />;
+
+    return (
+      <button key={action} className={className} onClick={() => handleAction(actionName)} disabled={loading}>
+        {theme === 'terminal' ? renderTerminalAction(action) : (
+          <>
+            <span className="action-icon">{icon}</span>
+            <span>{getActionLabel(action)}</span>
+          </>
         )}
+      </button>
+    );
+  }
+
+  function renderFooter() {
+    const footerMeta = theme === 'brutalist' ? `v${version}` : theme === 'minimal' ? t.minimalVolume : '';
+
+    return (
+      <footer className="popup-footer">
+        <button className="text-btn danger" onClick={() => confirm(t.confirmClear) && handleAction('clear')} disabled={loading}>
+          {theme === 'terminal' ? (
+            <>
+              <span className="danger-command">rm -rf</span>
+              <span className="clear-path">{t.terminalClearPath}</span>
+            </>
+          ) : (
+            <>
+              <Icons.Trash />
+              <span>{t.clear}</span>
+            </>
+          )}
+        </button>
+        {footerMeta && <span className="footer-meta">{footerMeta}</span>}
+      </footer>
+    );
+  }
+
+  return (
+    <div className="popup" data-theme={theme}>
+      {renderHeader()}
+      {renderSearch()}
+      {renderStats()}
+      <div className="actions-grid">
+        {renderActionButton('upload')}
+        {renderActionButton('download')}
+        {hasWebIntegration && renderActionButton('enrich')}
       </div>
 
       {hasWebIntegration && enrichStatusText && (
@@ -310,12 +543,7 @@ export default function App() {
         </div>
       )}
 
-      <footer className="popup-footer">
-        <button className="text-btn danger" onClick={() => confirm(t.confirmClear) && handleAction('clear')} disabled={loading}>
-          <Icons.Trash />
-          <span>{t.clear}</span>
-        </button>
-      </footer>
+      {renderFooter()}
     </div>
   );
 }

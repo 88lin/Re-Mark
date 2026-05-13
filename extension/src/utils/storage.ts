@@ -7,17 +7,20 @@ const DEFAULT_SETTINGS: Settings = {
   apiSecret: '',
   webUrl: '',
   autoSync: false,
-  syncDelay: 5
+  syncDelay: 5,
+  theme: 'brutalist'
 };
 
+const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
+
 export async function getSettings(): Promise<Settings> {
-  const localSettings = await browser.storage.local.get(DEFAULT_SETTINGS);
+  const localSettings = await browser.storage.local.get(SETTING_KEYS);
   const mergedLocal = { ...DEFAULT_SETTINGS, ...localSettings } as Settings;
 
   const needsMigration = !localSettings.githubToken && !localSettings.gistId && !localSettings.webUrl;
   if (needsMigration) {
     const syncSettings = await browser.storage.sync.get(DEFAULT_SETTINGS);
-    const migrated = { ...mergedLocal, ...syncSettings } as Settings;
+    const migrated = { ...DEFAULT_SETTINGS, ...syncSettings, ...localSettings } as Settings;
     await browser.storage.local.set(migrated);
     return migrated;
   }

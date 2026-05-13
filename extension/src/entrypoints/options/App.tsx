@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { browser } from 'wxt/browser';
 import { getSettings, saveSettings } from '../../utils/storage';
-import type { Settings } from '../../types';
+import { THEME_OPTIONS } from '../../utils/themes';
+import type { Settings, ThemeName } from '../../types';
 import './style.css';
 
 const Icons = {
@@ -35,7 +36,8 @@ export default function App() {
     apiSecret: '',
     webUrl: '',
     autoSync: false,
-    syncDelay: 5
+    syncDelay: 5,
+    theme: 'brutalist'
   });
   const [saved, setSaved] = useState(false);
   const [lang, setLang] = useState('en');
@@ -46,6 +48,10 @@ export default function App() {
     loadSettings();
     detectLanguage();
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   function detectLanguage() {
     const userLang = navigator.language || 'en';
@@ -96,6 +102,9 @@ export default function App() {
     autoSyncDesc: '书签变化后自动上传（带延迟）',
     syncDelay: '同步延迟（分钟）',
     syncDelayHint: '自动上传前的等待时间',
+    appearance: '外观',
+    theme: '主题',
+    themeHint: '选择扩展弹窗和设置页的视觉主题',
     saveSettings: '保存设置',
     saved: '已保存！',
     privacyTitle: '隐私与权限说明',
@@ -133,6 +142,9 @@ export default function App() {
     autoSyncDesc: 'Automatically upload bookmarks after changes (with delay)',
     syncDelay: 'Sync Delay (minutes)',
     syncDelayHint: 'Wait time before auto-uploading changes',
+    appearance: 'Appearance',
+    theme: 'Theme',
+    themeHint: 'Choose the visual theme for the extension popup and settings page',
     saveSettings: 'Save Settings',
     saved: 'Saved!',
     privacyTitle: 'Privacy & Permissions',
@@ -150,7 +162,7 @@ export default function App() {
   };
 
   return (
-    <div className="options">
+    <div className="options" data-theme={settings.theme}>
       <header className="options-header">
         <h1>{t.title}</h1>
       </header>
@@ -240,6 +252,40 @@ export default function App() {
           </div>
         </section>
 
+        <section className="card section-appearance">
+          <div className="card-header">
+            <div className="icon-box yellow"><Icons.Eye /></div>
+            <h2>{t.appearance}</h2>
+          </div>
+
+          <div className="card-body">
+            <div className="field">
+              <label>{t.theme}</label>
+              <div className="theme-options" role="radiogroup" aria-label={t.theme}>
+                {THEME_OPTIONS.map(option => (
+                  <label key={option.value} className="theme-option">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value={option.value}
+                      checked={settings.theme === option.value}
+                      onChange={() => updateField('theme', option.value as ThemeName)}
+                    />
+                    <span className="theme-option-body">
+                      <span className="theme-option-code">{option.code}</span>
+                      <span className="theme-option-text">
+                        <span className="theme-option-name">{option.name}</span>
+                        <span className="theme-option-description">{option.description}</span>
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <small>{t.themeHint}</small>
+            </div>
+          </div>
+        </section>
+
         <div className="options-actions-sticky">
           <button className={`btn-save ${saved ? 'saved' : ''}`} onClick={handleSave}>
             {saved ? <><Icons.Check /> {t.saved}</> : t.saveSettings}
@@ -254,8 +300,8 @@ export default function App() {
           <div className="card-body">
             <div className="info-box">
               <p>{t.privacyLocal}</p>
-              <p style={{ marginTop: '0.5rem' }}>{t.privacyUsage}</p>
-              <h3 style={{ marginTop: '1rem', fontSize: '1rem', color: '#334155' }}>{t.permissionsTitle}</h3>
+              <p className="info-spaced">{t.privacyUsage}</p>
+              <h3>{t.permissionsTitle}</h3>
               <ul>
                 {t.permissions.map((item, idx) => (
                   <li key={idx}>{item}</li>
