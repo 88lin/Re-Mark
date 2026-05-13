@@ -61,8 +61,15 @@ function normalizeGistRawUrl(url: string) {
 const GIST_URL = normalizeGistRawUrl(import.meta.env.GIST_RAW_URL || '');
 const DISABLE_ONLINE_FAVICON =
   ['true', '1', 'yes'].includes((import.meta.env.DISABLE_ONLINE_FAVICON || '').toString().toLowerCase());
-const THEME_NAMES = ['brutalist', 'editorial', 'terminal', 'minimal', 'glass'] as const;
-type ThemeName = typeof THEME_NAMES[number];
+const THEME_OPTIONS = [
+  { value: 'brutalist', label: 'Neo-Brutalist' },
+  { value: 'editorial', label: 'Soft Editorial' },
+  { value: 'terminal', label: 'Terminal Synthwave' },
+  { value: 'minimal', label: 'Japanese Minimalism' },
+  { value: 'glass', label: 'Glassmorphism Light' }
+] as const;
+type ThemeName = typeof THEME_OPTIONS[number]['value'];
+const THEME_NAMES = THEME_OPTIONS.map(option => option.value);
 
 function getWebTheme(value: unknown): ThemeName {
   const normalized = String(value || '').trim().toLowerCase();
@@ -179,30 +186,10 @@ function getCardSize(id: string, index: number) {
   const hash = getHashCode(id) + (index * 7919);
   const rand = Math.abs(hash) % 100;
 
-  if (rand < 10) return 'col-span-2 row-span-2 big';
-  if (rand < 25) return 'row-span-2 tall';
-  if (rand < 45) return 'col-span-2 wide';
+  if (rand < 8) return 'col-span-2 row-span-2 big';
+  if (rand < 18) return 'row-span-2 tall';
+  if (rand < 34) return 'col-span-2 wide';
   return 'standard';
-}
-
-function getRandomStyles(id: string) {
-  const hash = getHashCode(id);
-  const seed = Math.abs(hash);
-
-  const rotation = ((seed % 5) - 2);
-
-  const r1 = 230 + (seed % 25);
-  const r2 = 10 + (Math.floor(seed / 4) % 15);
-  const r3 = 220 + (Math.floor(seed / 8) % 35);
-  const r4 = 15 + (Math.floor(seed / 16) % 10);
-
-  const sketchBorder = `${255 - (seed % 10)}px ${15 + (seed % 5)}px ${225 + (seed % 10)}px ${15 + (seed % 5)}px / ${15 + (seed % 5)}px ${225 + (seed % 10)}px ${15 + (seed % 5)}px ${255 - (seed % 10)}px`;
-
-  return {
-    rotation,
-    sketchBorder,
-    borderWidth: 2 + (seed % 2)
-  };
 }
 
 const emojis = ['⚡', '✨', '🔥', '💧', '🌿', '🔮', '🧬', '🚀', '🛸', '🪐', '🌊', '🏔️', '🏛️', '🎨', '🎲', '🧩', '🎸', '📷', '📚', '💡', '🧠', '⚙️', '💎', '🔑', '🎯', '👾', '🤖', '🎃', '⭐', '🌟', '💫', '🌈', '🎭', '🎪', '🎬', '🎮', '🎯', '🎨', '🌺', '🌸', '🌼', '🍀', '🦋'];
@@ -234,6 +221,18 @@ function getSymbol(title: string, domain: string) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=Fraunces:ital,wght@0,300;0,600;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cabinet+Grotesk:wght@300;400;500;700;800&family=Noto+Serif+SC:wght@300;400;600&family=Red+Hat+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script define:vars={{ WEB_THEME }}>
+    (function() {
+      const storageKey = 'remark-web-theme';
+      const themes = ['brutalist', 'editorial', 'terminal', 'minimal', 'glass'];
+      try {
+        const savedTheme = localStorage.getItem(storageKey);
+        document.documentElement.dataset.theme = themes.includes(savedTheme) ? savedTheme : WEB_THEME;
+      } catch {
+        document.documentElement.dataset.theme = WEB_THEME;
+      }
+    })();
+  </script>
   <style>
     :root {
       --font-main: "Space Mono", monospace;
@@ -403,10 +402,11 @@ function getSymbol(title: string, domain: string) {
     }
 
     .header {
-      background: var(--surface);
+      background: var(--ink);
       border: var(--border-width) solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+      color: var(--surface);
       padding: 16px 32px;
       display: flex;
       align-items: center;
@@ -415,12 +415,13 @@ function getSymbol(title: string, domain: string) {
       transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
     }
 
-    .header:hover {
+    :root[data-theme="brutalist"] .header:hover {
       transform: translate(-1px, -1px);
       box-shadow: var(--shadow-hover);
     }
 
     .brand {
+      color: inherit;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -429,11 +430,11 @@ function getSymbol(title: string, domain: string) {
     }
 
     .logo {
-      color: var(--ink);
+      color: currentColor;
       font-family: var(--font-display);
       font-size: 2.2rem;
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: 0;
       line-height: 1;
     }
 
@@ -486,8 +487,44 @@ function getSymbol(title: string, domain: string) {
     .controls {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 10px;
       flex-shrink: 0;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .theme-select {
+      height: 44px;
+      max-width: 190px;
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      background: var(--surface-strong);
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0 34px 0 12px;
+      text-overflow: ellipsis;
+      transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .theme-select:hover,
+    .theme-select:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.16);
+      outline: none;
+      transform: translate(-1px, -1px);
     }
 
     .stats-pill {
@@ -498,6 +535,11 @@ function getSymbol(title: string, domain: string) {
       font-size: 0.9rem;
       font-weight: 700;
       padding: 8px 12px;
+    }
+
+    .stats-divider {
+      margin: 0 4px;
+      opacity: 0.5;
     }
 
     .icon-btn {
@@ -539,7 +581,6 @@ function getSymbol(title: string, domain: string) {
     }
 
     .card {
-      --card-rotation: 0deg;
       --card-radius: var(--radius);
       --card-border-width: var(--border-width);
       display: flex;
@@ -554,7 +595,6 @@ function getSymbol(title: string, domain: string) {
       padding: 24px;
       position: relative;
       text-decoration: none;
-      transform: rotate(var(--card-rotation));
       transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
     }
 
@@ -563,7 +603,7 @@ function getSymbol(title: string, domain: string) {
       border-color: var(--accent);
       box-shadow: var(--shadow-hover);
       outline: none;
-      transform: translate(-2px, -4px) rotate(calc(var(--card-rotation) - 1deg)) scale(1.02);
+      transform: translate(-2px, -4px);
       z-index: 10;
     }
 
@@ -645,10 +685,18 @@ function getSymbol(title: string, domain: string) {
     .col-span-2 { grid-column: span 2; }
     .row-span-2 { grid-row: span 2; }
 
-    .big .card-title { font-size: 2rem; }
-    .big .card-desc { font-size: 1.15rem; -webkit-line-clamp: 5; }
-    .wide .card-desc { -webkit-line-clamp: 4; }
-    .tall .card-desc { -webkit-line-clamp: 6; }
+    :root[data-theme="brutalist"] .big .card-title { font-size: 2rem; }
+    :root[data-theme="brutalist"] .big .card-desc { font-size: 1.15rem; -webkit-line-clamp: 5; }
+    :root[data-theme="brutalist"] .wide .card-desc { -webkit-line-clamp: 4; }
+    :root[data-theme="brutalist"] .tall .card-desc { -webkit-line-clamp: 6; }
+
+    :root:not([data-theme="brutalist"]) .col-span-2 {
+      grid-column: auto;
+    }
+
+    :root:not([data-theme="brutalist"]) .row-span-2 {
+      grid-row: auto;
+    }
 
     .hidden { display: none !important; }
 
@@ -686,15 +734,34 @@ function getSymbol(title: string, domain: string) {
       color: var(--danger);
     }
 
+    :root[data-theme="brutalist"] .theme-select,
+    :root[data-theme="brutalist"] .stats-pill,
+    :root[data-theme="brutalist"] .icon-btn {
+      border-color: var(--border);
+    }
+
     :root[data-theme="editorial"] .header,
     :root[data-theme="editorial"] .card {
       background: var(--surface-strong);
+      color: var(--ink);
+    }
+
+    :root[data-theme="editorial"] .header {
+      align-items: flex-start;
+      border-color: var(--border);
+      box-shadow: var(--shadow);
+      padding: 20px 24px;
+    }
+
+    :root[data-theme="editorial"] .logo {
+      font-size: 1.85rem;
+      font-weight: 600;
     }
 
     :root[data-theme="editorial"] .card {
-      --card-rotation: 0deg !important;
       --card-radius: var(--radius-soft) !important;
       --card-border-width: 1px !important;
+      min-height: 230px;
     }
 
     :root[data-theme="editorial"] .card:hover,
@@ -706,9 +773,50 @@ function getSymbol(title: string, domain: string) {
       font-style: italic;
     }
 
+    :root[data-theme="editorial"] .grid-container {
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-auto-flow: row;
+      gap: 18px;
+    }
+
+    :root[data-theme="editorial"] .search-input,
+    :root[data-theme="editorial"] .theme-select,
+    :root[data-theme="editorial"] .stats-pill,
+    :root[data-theme="editorial"] .icon-btn,
+    :root[data-theme="editorial"] .tag {
+      border-color: rgba(0, 0, 0, 0.15);
+      box-shadow: none;
+    }
+
+    :root[data-theme="editorial"] .search-input {
+      height: 46px;
+      font-size: 0.95rem;
+    }
+
+    :root[data-theme="editorial"] .card-title {
+      font-size: 1.45rem;
+      font-weight: 600;
+      line-height: 1.18;
+    }
+
+    :root[data-theme="editorial"] .card-desc {
+      color: #5e5850;
+      font-size: 0.98rem;
+      line-height: 1.55;
+    }
+
+    :root[data-theme="editorial"] .tag {
+      background: #faf8f5 !important;
+      color: #4f46e5;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: none;
+    }
+
     :root[data-theme="terminal"] .header,
     :root[data-theme="terminal"] .card,
     :root[data-theme="terminal"] .search-input,
+    :root[data-theme="terminal"] .theme-select,
     :root[data-theme="terminal"] .stats-pill,
     :root[data-theme="terminal"] .icon-btn,
     :root[data-theme="terminal"] .tag {
@@ -719,6 +827,82 @@ function getSymbol(title: string, domain: string) {
 
     :root[data-theme="terminal"] .header {
       border-top-color: var(--ink);
+      color: var(--ink);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 16px 18px;
+    }
+
+    :root[data-theme="terminal"] .brand {
+      align-items: flex-start;
+    }
+
+    :root[data-theme="terminal"] .brand::before {
+      content: "~$";
+      color: var(--accent);
+      font-size: 1rem;
+      line-height: 1.9;
+    }
+
+    :root[data-theme="terminal"] .logo {
+      font-size: 1.45rem;
+      letter-spacing: 0.04em;
+      text-transform: lowercase;
+    }
+
+    :root[data-theme="terminal"] .logo::after {
+      content: "_";
+      color: var(--ink);
+      animation: terminal-cursor-blink 1s step-end infinite;
+    }
+
+    :root[data-theme="terminal"] .search-bar {
+      max-width: none;
+      width: 100%;
+    }
+
+    :root[data-theme="terminal"] .search-bar::before {
+      content: "grep -i";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      color: var(--accent);
+      font-size: 0.82rem;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+
+    :root[data-theme="terminal"] .search-icon {
+      display: none;
+    }
+
+    :root[data-theme="terminal"] .search-input {
+      height: 36px;
+      border-width: 0 0 1px;
+      color: #00d066;
+      padding: 0 0 0 72px;
+    }
+
+    :root[data-theme="terminal"] .controls {
+      justify-content: flex-start;
+    }
+
+    :root[data-theme="terminal"] .theme-select,
+    :root[data-theme="terminal"] .stats-pill,
+    :root[data-theme="terminal"] .icon-btn {
+      color: var(--muted);
+      height: 34px;
+    }
+
+    :root[data-theme="terminal"] .theme-select:hover,
+    :root[data-theme="terminal"] .theme-select:focus-visible,
+    :root[data-theme="terminal"] .icon-btn:hover,
+    :root[data-theme="terminal"] .icon-btn:focus-visible {
+      background: rgba(0, 255, 128, 0.05);
+      border-color: var(--ink);
+      color: var(--ink);
+      box-shadow: 0 0 18px rgba(0, 255, 128, 0.18);
     }
 
     :root[data-theme="terminal"] .logo,
@@ -726,11 +910,25 @@ function getSymbol(title: string, domain: string) {
       text-shadow: 0 0 10px rgba(0, 255, 128, 0.42);
     }
 
+    :root[data-theme="terminal"] .grid-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     :root[data-theme="terminal"] .card {
-      --card-rotation: 0deg !important;
       --card-radius: 0 !important;
       --card-border-width: 1px !important;
-      min-height: 220px;
+      min-height: 0;
+      padding: 16px 18px;
+    }
+
+    :root[data-theme="terminal"] .card::before {
+      content: attr(data-domain);
+      color: #1a4a3a;
+      font-size: 0.72rem;
+      margin-bottom: 8px;
+      order: -1;
     }
 
     :root[data-theme="terminal"] .card:hover,
@@ -742,14 +940,47 @@ function getSymbol(title: string, domain: string) {
 
     :root[data-theme="terminal"] .card-icon,
     :root[data-theme="terminal"] .search-input,
+    :root[data-theme="terminal"] .theme-select,
     :root[data-theme="terminal"] .stats-pill,
     :root[data-theme="terminal"] .icon-btn {
       box-shadow: none;
     }
 
+    :root[data-theme="terminal"] .card-icon {
+      display: none;
+    }
+
+    :root[data-theme="terminal"] .card-title {
+      color: var(--ink);
+      font-size: 1rem;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    :root[data-theme="terminal"] .card-title::before {
+      content: "open ";
+      color: var(--accent);
+      font-weight: 400;
+    }
+
+    :root[data-theme="terminal"] .card-desc {
+      color: var(--text-secondary);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      -webkit-line-clamp: 2;
+    }
+
     :root[data-theme="terminal"] .tag {
       background: transparent;
       color: var(--accent-2);
+      font-size: 0.75rem;
+      padding: 2px 0;
+      border: 0;
+    }
+
+    :root[data-theme="terminal"] .tag::before {
+      content: "--";
+      color: var(--muted);
     }
 
     :root[data-theme="minimal"] .header {
@@ -757,16 +988,44 @@ function getSymbol(title: string, domain: string) {
       border-left-color: var(--border-soft);
       border-right-width: 3px;
       border-bottom-width: 3px;
+      background: transparent;
+      color: var(--ink);
+      align-items: flex-start;
+      box-shadow: none;
+      padding: 24px 28px 20px;
+      position: relative;
+    }
+
+    :root[data-theme="minimal"] .header::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 28px;
+      width: 44px;
+      height: 2px;
+      background: var(--ink);
+    }
+
+    :root[data-theme="minimal"] .logo {
+      font-size: 2rem;
+      font-weight: 400;
     }
 
     :root[data-theme="minimal"] .card {
-      --card-rotation: 0deg !important;
       --card-radius: 0 !important;
       --card-border-width: 1px !important;
       border-top-color: var(--border-soft);
       border-left-color: var(--border-soft);
       border-right-width: 3px;
       border-bottom-width: 3px;
+      box-shadow: none;
+      min-height: 250px;
+    }
+
+    :root[data-theme="minimal"] .grid-container {
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-auto-flow: row;
+      gap: 22px;
     }
 
     :root[data-theme="minimal"] .card:hover,
@@ -774,29 +1033,90 @@ function getSymbol(title: string, domain: string) {
       transform: translateY(-3px);
     }
 
-    :root[data-theme="minimal"] .tag {
+    :root[data-theme="minimal"] .search-input {
+      background: transparent;
+      border-width: 0 0 1.5px;
+      border-radius: 0;
+      box-shadow: none;
+      height: 42px;
+      padding-left: 34px;
+    }
+
+    :root[data-theme="minimal"] .search-input:focus {
+      box-shadow: none;
+      transform: none;
+    }
+
+    :root[data-theme="minimal"] .theme-select,
+    :root[data-theme="minimal"] .stats-pill,
+    :root[data-theme="minimal"] .icon-btn {
+      background: transparent;
       border-color: var(--border-soft);
+      box-shadow: none;
+    }
+
+    :root[data-theme="minimal"] .card-title {
+      font-size: 1.38rem;
+      font-weight: 400;
+      line-height: 1.26;
+    }
+
+    :root[data-theme="minimal"] .card-desc {
+      color: #5f574c;
+      font-size: 0.98rem;
+      line-height: 1.65;
+    }
+
+    :root[data-theme="minimal"] .tag {
+      background: transparent !important;
+      border-color: var(--border-soft);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 400;
     }
 
     :root[data-theme="glass"] .header,
     :root[data-theme="glass"] .card,
     :root[data-theme="glass"] .search-input,
+    :root[data-theme="glass"] .theme-select,
     :root[data-theme="glass"] .stats-pill,
     :root[data-theme="glass"] .icon-btn {
       -webkit-backdrop-filter: blur(40px) saturate(180%);
       backdrop-filter: blur(40px) saturate(180%);
     }
 
+    :root[data-theme="glass"] .header {
+      background: var(--surface);
+      color: var(--ink);
+      border-color: var(--border);
+      padding: 14px 18px;
+    }
+
     :root[data-theme="glass"] .card {
-      --card-rotation: 0deg !important;
       --card-radius: var(--radius) !important;
       --card-border-width: 1px !important;
       background: var(--surface);
+      min-height: 235px;
     }
 
     :root[data-theme="glass"] .card:hover,
     :root[data-theme="glass"] .card:focus-visible {
       transform: translateY(-4px);
+    }
+
+    :root[data-theme="glass"] .grid-container {
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-auto-flow: row;
+      gap: 18px;
+    }
+
+    :root[data-theme="glass"] .search-input,
+    :root[data-theme="glass"] .theme-select,
+    :root[data-theme="glass"] .stats-pill,
+    :root[data-theme="glass"] .icon-btn {
+      background: rgba(255, 255, 255, 0.74);
+      border-color: rgba(38, 47, 63, 0.18);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
 
     :root[data-theme="glass"] .tag,
@@ -805,16 +1125,45 @@ function getSymbol(title: string, domain: string) {
       border-color: var(--border-soft);
     }
 
+    :root[data-theme="glass"] .card-title {
+      font-size: 1.28rem;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    :root[data-theme="glass"] .card-desc {
+      color: #4f5663;
+      font-size: 0.96rem;
+      line-height: 1.52;
+    }
+
+    @keyframes terminal-cursor-blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     @media (max-width: 1024px) {
       .header {
         flex-direction: column;
         gap: 16px;
         height: auto;
+        align-items: stretch;
       }
 
       .search-bar {
         width: 100%;
         max-width: none;
+      }
+
+      :root[data-theme="terminal"] .header {
+        display: flex;
       }
     }
 
@@ -845,7 +1194,18 @@ function getSymbol(title: string, domain: string) {
 
       .controls {
         width: 100%;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        justify-content: stretch;
+      }
+
+      .theme-select {
+        width: 100%;
+        max-width: none;
+      }
+
+      .stats-pill {
+        white-space: nowrap;
       }
     }
 
@@ -875,8 +1235,17 @@ function getSymbol(title: string, domain: string) {
       </div>
 
       <div class="controls">
+        <label class="sr-only" for="themeSelect">Theme</label>
+        <select id="themeSelect" class="theme-select" aria-label="Theme">
+          {THEME_OPTIONS.map(option => (
+            <option value={option.value} selected={option.value === WEB_THEME}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
         <div class="stats-pill">
-          {enrichedCount} <span style="opacity:0.5; margin:0 4px">/</span> {bookmarks.length}
+          {enrichedCount} <span class="stats-divider">/</span> {bookmarks.length}
         </div>
         
         <button id="refreshBtn" class="icon-btn" title="Refresh">
@@ -897,7 +1266,6 @@ function getSymbol(title: string, domain: string) {
           const sizeClass = getCardSize(item.id, index);
           const displayTitle = item.ai?.title || item.title;
           const symbol = getSymbol(displayTitle, domain);
-          const randomStyles = getRandomStyles(item.id);
           const useOnlineIcon = !DISABLE_ONLINE_FAVICON && item.ai && item.ai.cover;
 
           const tagHash = Math.abs(getHashCode(item.id + 'tag'));
@@ -911,12 +1279,6 @@ function getSymbol(title: string, domain: string) {
               target="_blank"
               rel="noopener"
               class={`card ${sizeClass}`}
-              style={`
-                --card-rotation: ${randomStyles.rotation}deg;
-                --card-radius: ${randomStyles.sketchBorder};
-                --card-border-width: ${randomStyles.borderWidth}px;
-                --hover-scale: 1.02;
-              `}
               data-domain={domain}
               data-symbol={symbol}
               data-bg={bg}
@@ -1006,8 +1368,38 @@ function getSymbol(title: string, domain: string) {
     )}
   </div>
 
+  <script define:vars={{ WEB_THEME }}>
+    (function() {
+      const storageKey = 'remark-web-theme';
+      const themes = ['brutalist', 'editorial', 'terminal', 'minimal', 'glass'];
+      const root = document.documentElement;
+      let savedTheme = null;
+
+      try {
+        savedTheme = localStorage.getItem(storageKey);
+      } catch {}
+
+      const initialTheme = themes.includes(savedTheme) ? savedTheme : WEB_THEME;
+
+      root.dataset.theme = initialTheme;
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const themeSelect = document.getElementById('themeSelect');
+        if (!(themeSelect instanceof HTMLSelectElement)) return;
+
+        themeSelect.value = initialTheme;
+        themeSelect.addEventListener('change', function() {
+          if (!themes.includes(themeSelect.value)) return;
+          root.dataset.theme = themeSelect.value;
+          try {
+            localStorage.setItem(storageKey, themeSelect.value);
+          } catch {}
+        });
+      });
+    })();
+  </script>
+
   <script is:inline>
-    // Search Functionality
     const searchInput = document.getElementById('searchInput');
     const grid = document.getElementById('bookmarkGrid');
     
