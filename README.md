@@ -93,7 +93,17 @@ Vercel 提供免费的托管服务，非常适合部署本项目的 Web 端。
    # AI API 配置（根据需要选择）
    AI_API_KEY=your_ai_api_key_here
    AI_API_URL=your_ai_api_url_here
+
+   # Web 主题（可选）
+   WEB_THEME=brutalist
    ```
+
+   `WEB_THEME` 可选值：
+   - `brutalist`：Neo-Brutalist，高对比粗野风（默认）
+   - `editorial`：Soft Editorial，温暖编辑感
+   - `terminal`：Terminal Synthwave，终端复古风
+   - `minimal`：Japanese Minimalism，和风极简
+   - `glass`：Glassmorphism Light，浅色毛玻璃
 
 5. **部署**
    - 点击 `Deploy` 按钮，等待部署完成

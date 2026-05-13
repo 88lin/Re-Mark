@@ -61,9 +61,19 @@ function normalizeGistRawUrl(url: string) {
 const GIST_URL = normalizeGistRawUrl(import.meta.env.GIST_RAW_URL || '');
 const DISABLE_ONLINE_FAVICON =
   ['true', '1', 'yes'].includes((import.meta.env.DISABLE_ONLINE_FAVICON || '').toString().toLowerCase());
+const THEME_NAMES = ['brutalist', 'editorial', 'terminal', 'minimal', 'glass'] as const;
+type ThemeName = typeof THEME_NAMES[number];
+
+function getWebTheme(value: unknown): ThemeName {
+  const normalized = String(value || '').trim().toLowerCase();
+  return THEME_NAMES.includes(normalized as ThemeName) ? (normalized as ThemeName) : 'brutalist';
+}
+
+const WEB_THEME = getWebTheme(import.meta.env.WEB_THEME);
 
 console.log('[Server] Original GIST_RAW_URL:', import.meta.env.GIST_RAW_URL);
 console.log('[Server] Normalized GIST_URL:', GIST_URL);
+console.log('[Server] WEB_THEME:', WEB_THEME);
 
 let data: SyncData | null = null;
 let errorMsg = '';
@@ -195,7 +205,7 @@ function getRandomStyles(id: string) {
   };
 }
 
-const emojis = ['⚡', '✨', '🔥', '💧', '🌿', '🔮', '🧬', '🚀', '🛸', '🪐', '🌊', '🏔️', '🏛️', '🎨', '🎲', '🧩', '🎸', '📷', '📚', '💡', '🧠', '⚙️', '💎', '🔑', '🎯', '👾', '🤖', '🎃', '🦄', '🐲', '⭐', '🌟', '💫', '🌈', '🎭', '🎪', '🎬', '🎮', '🎯', '🎨', '🌺', '🌸', '🌼', '🍀', '🦋', '🐝', '🦁', '🦊', '🐻', '🐼'];
+const emojis = ['⚡', '✨', '🔥', '💧', '🌿', '🔮', '🧬', '🚀', '🛸', '🪐', '🌊', '🏔️', '🏛️', '🎨', '🎲', '🧩', '🎸', '📷', '📚', '💡', '🧠', '⚙️', '💎', '🔑', '🎯', '👾', '🤖', '🎃', '⭐', '🌟', '💫', '🌈', '🎭', '🎪', '🎬', '🎮', '🎯', '🎨', '🌺', '🌸', '🌼', '🍀', '🦋'];
 
 function getSymbol(title: string, domain: string) {
   const hash = getHashCode(domain);
@@ -211,7 +221,7 @@ function getSymbol(title: string, domain: string) {
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme={WEB_THEME}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -223,35 +233,154 @@ function getSymbol(title: string, domain: string) {
   <link rel="manifest" href="/site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=Fraunces:ital,wght@0,300;0,600;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cabinet+Grotesk:wght@300;400;500;700;800&family=Noto+Serif+SC:wght@300;400;600&family=Red+Hat+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-paper: #fdfbf7;
-      --ink-black: #2c3e50;
-      --pencil-gray: #7f8c8d;
-      
-      --shadow-hard: 4px 4px 0px 0px rgba(44, 62, 80, 0.2);
-      --shadow-hover: 6px 6px 0px 0px rgba(44, 62, 80, 0.4);
-      
+      --font-main: "Space Mono", monospace;
+      --font-display: "Space Mono", monospace;
+      --page-bg: #f5f2eb;
+      --surface: #f5f2eb;
+      --surface-strong: #ffffff;
+      --ink: #1a1a1a;
+      --muted: #5f5f5f;
+      --faint: #d8d2c5;
+      --accent: #f59e0b;
+      --accent-2: #10b981;
+      --danger: #ef4444;
+      --border: #1a1a1a;
+      --border-soft: #1a1a1a;
+      --shadow: 6px 6px 0 #1a1a1a;
+      --shadow-hover: 8px 8px 0 #1a1a1a;
+      --radius: 0;
+      --radius-soft: 0;
+      --control-radius: 0;
+      --border-width: 2.5px;
       --grid-gap: 24px;
+      --text-secondary: var(--muted);
+      --pencil-gray: var(--muted);
+      --ink-black: var(--ink);
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root[data-theme="editorial"] {
+      --font-main: "IBM Plex Sans", sans-serif;
+      --font-display: "Fraunces", serif;
+      --page-bg: #faf8f5;
+      --surface: #faf8f5;
+      --surface-strong: #ffffff;
+      --ink: #1a1a1a;
+      --muted: #65605a;
+      --faint: #e3d8cb;
+      --accent: #d97706;
+      --accent-2: #6366f1;
+      --danger: #dc2626;
+      --border: rgba(0, 0, 0, 0.14);
+      --border-soft: rgba(0, 0, 0, 0.1);
+      --shadow: 0 2px 40px rgba(0, 0, 0, 0.12);
+      --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.14);
+      --radius: 18px;
+      --radius-soft: 14px;
+      --control-radius: 12px;
+      --border-width: 1px;
+    }
+
+    :root[data-theme="terminal"] {
+      --font-main: "Red Hat Mono", monospace;
+      --font-display: "Red Hat Mono", monospace;
+      --page-bg: #080b14;
+      --surface: #080b14;
+      --surface-strong: #0d1220;
+      --ink: #00ff80;
+      --muted: #2fb66a;
+      --faint: #0d2a1a;
+      --accent: #ff6eb4;
+      --accent-2: #6eb4ff;
+      --danger: #ff4040;
+      --border: #0d3a2a;
+      --border-soft: #0d2a1a;
+      --shadow: 0 0 24px rgba(0, 255, 128, 0.16);
+      --shadow-hover: 0 0 22px rgba(0, 255, 128, 0.3);
+      --radius: 0;
+      --radius-soft: 0;
+      --control-radius: 0;
+      --border-width: 1px;
+      --text-secondary: #5de08f;
+    }
+
+    :root[data-theme="minimal"] {
+      --font-main: "Noto Serif SC", serif;
+      --font-display: "Playfair Display", serif;
+      --page-bg: #fbfaf7;
+      --surface: #fbfaf7;
+      --surface-strong: #fffdf9;
+      --ink: #1a1a1a;
+      --muted: #6f6658;
+      --faint: #d8d0c3;
+      --accent: #8b6914;
+      --accent-2: #1a1a1a;
+      --danger: #8b2020;
+      --border: #1a1a1a;
+      --border-soft: #cfc6b8;
+      --shadow: 3px 3px 0 #1a1a1a;
+      --shadow-hover: 4px 4px 0 #1a1a1a;
+      --radius: 0;
+      --radius-soft: 2px;
+      --control-radius: 2px;
+      --border-width: 1px;
+    }
+
+    :root[data-theme="glass"] {
+      --font-main: "Cabinet Grotesk", sans-serif;
+      --font-display: "Cabinet Grotesk", sans-serif;
+      --page-bg: linear-gradient(135deg, #e8f4fd 0%, #fde8f4 48%, #f4fde8 100%);
+      --surface: rgba(255, 255, 255, 0.84);
+      --surface-strong: rgba(255, 255, 255, 0.9);
+      --ink: #1a1a1a;
+      --muted: #5f6368;
+      --faint: rgba(87, 96, 111, 0.16);
+      --accent: #007aff;
+      --accent-2: #34c759;
+      --danger: #ff3b30;
+      --border: rgba(38, 47, 63, 0.18);
+      --border-soft: rgba(38, 47, 63, 0.14);
+      --shadow: 0 10px 36px rgba(24, 32, 48, 0.18), 0 2px 8px rgba(24, 32, 48, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      --shadow-hover: 0 18px 42px rgba(24, 32, 48, 0.22), 0 4px 10px rgba(24, 32, 48, 0.12);
+      --radius: 22px;
+      --radius-soft: 14px;
+      --control-radius: 14px;
+      --border-width: 1px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+    }
 
     body {
-      font-family: 'Patrick Hand', cursive;
-      background-color: var(--bg-paper);
-      background-image:
-        radial-gradient(#d0d0d0 1px, transparent 1px),
-        radial-gradient(#d0d0d0 1px, transparent 1px);
-      background-size: 20px 20px;
-      background-position: 0 0, 10px 10px;
-      color: var(--ink-black);
       min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--ink);
       display: flex;
       flex-direction: column;
       align-items: center;
       padding-bottom: 80px;
+      font-family: var(--font-main);
+      -webkit-font-smoothing: subpixel-antialiased;
+      -moz-osx-font-smoothing: auto;
+    }
+
+    :root[data-theme="terminal"] body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 128, 0.025) 2px, rgba(0, 255, 128, 0.025) 4px);
+      pointer-events: none;
+      z-index: 1000;
     }
 
     .container {
@@ -263,7 +392,6 @@ function getSymbol(title: string, domain: string) {
       gap: 40px;
     }
 
-    /* Header Design - Sketch Style */
     .header-wrapper {
       position: sticky;
       top: 20px;
@@ -275,19 +403,21 @@ function getSymbol(title: string, domain: string) {
     }
 
     .header {
-      background: #fff;
-      border: 3px solid var(--ink-black);
-      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+      background: var(--surface);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
       padding: 16px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: var(--shadow-hard);
-      transition: transform 0.2s;
+      gap: 24px;
+      transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
     }
-    
+
     .header:hover {
-        transform: scale(1.01) rotate(-0.5deg);
+      transform: translate(-1px, -1px);
+      box-shadow: var(--shadow-hover);
     }
 
     .brand {
@@ -295,44 +425,53 @@ function getSymbol(title: string, domain: string) {
       align-items: center;
       gap: 12px;
       text-decoration: none;
+      flex-shrink: 0;
     }
 
     .logo {
-      font-family: 'Gloria Hallelujah', cursive;
+      color: var(--ink);
+      font-family: var(--font-display);
       font-size: 2.2rem;
       font-weight: 700;
-      color: var(--ink-black);
-      transform: rotate(-3deg);
-      text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+      letter-spacing: -0.03em;
+      line-height: 1;
     }
-    
-    .logo-dot { color: #e74c3c; font-size: 3rem; line-height: 0.5; }
+
+    .logo-dot {
+      color: var(--accent);
+      font-size: 2.4rem;
+      line-height: 0.5;
+    }
 
     .search-bar {
       flex: 1;
       max-width: 480px;
-      margin: 0 40px;
       position: relative;
     }
 
     .search-input {
       width: 100%;
       height: 50px;
-      background: #fff;
-      border: 2px solid var(--ink-black);
-      border-radius: 255px 25px 225px 25px / 25px 225px 25px 255px;
+      background: var(--surface-strong);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+      color: var(--ink);
+      font-family: var(--font-main);
+      font-size: 1rem;
       padding: 0 24px 0 52px;
-      font-family: 'Patrick Hand', cursive;
-      font-size: 1.2rem;
-      color: var(--ink-black);
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-      transition: all 0.2s ease;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
     }
 
     .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: var(--shadow);
       outline: none;
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
-      transform: scale(1.02);
+      transform: translate(-1px, -1px);
+    }
+
+    .search-input::placeholder {
+      color: var(--muted);
     }
 
     .search-icon {
@@ -340,121 +479,141 @@ function getSymbol(title: string, domain: string) {
       left: 20px;
       top: 50%;
       transform: translateY(-50%);
-      color: var(--ink-black);
+      color: var(--muted);
       pointer-events: none;
     }
 
-    .controls { display: flex; align-items: center; gap: 16px; }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
 
     .stats-pill {
-      font-family: 'Patrick Hand', cursive;
-      font-size: 1.1rem;
+      background: var(--surface-strong);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      color: var(--ink);
+      font-size: 0.9rem;
       font-weight: 700;
-      border-bottom: 3px solid rgba(99, 102, 241, 0.3);
-      padding: 0 8px;
+      padding: 8px 12px;
     }
 
     .icon-btn {
       width: 44px;
       height: 44px;
-      border: 2px solid var(--ink-black);
-      border-radius: 50%;
-      background: #fff;
-      color: var(--ink-black);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      background: var(--surface-strong);
+      color: var(--ink);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
-      transition: all 0.1s;
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.16);
+      transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease, color 160ms ease;
     }
 
-    .icon-btn:hover {
+    .icon-btn:hover,
+    .icon-btn:focus-visible {
+      background: var(--accent);
+      color: #111111;
+      box-shadow: var(--shadow);
+      outline: none;
       transform: translate(-1px, -1px);
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
-      background: #f0f0f0;
     }
 
     .icon-btn:active {
       transform: translate(2px, 2px);
-      box-shadow: 0 0 0 rgba(0,0,0,0.2);
+      box-shadow: none;
     }
 
     .grid-container {
       margin-top: 20px;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      grid-auto-flow: dense; 
-      gap: 24px;
+      grid-auto-flow: dense;
+      gap: var(--grid-gap);
       padding-bottom: 40px;
     }
 
     .card {
+      --card-rotation: 0deg;
+      --card-radius: var(--radius);
+      --card-border-width: var(--border-width);
       display: flex;
       flex-direction: column;
-      background: #fff;
-      border: 2px solid var(--ink-black);
+      background: var(--surface-strong);
+      border: var(--card-border-width) solid var(--border);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      color: var(--ink);
+      min-height: 260px;
+      overflow: hidden;
       padding: 24px;
-      text-decoration: none;
       position: relative;
-      transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-      box-shadow: var(--shadow-hard);
-      overflow: hidden; 
+      text-decoration: none;
+      transform: rotate(var(--card-rotation));
+      transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
     }
 
-    .card:hover {
+    .card:hover,
+    .card:focus-visible {
+      border-color: var(--accent);
       box-shadow: var(--shadow-hover);
+      outline: none;
+      transform: translate(-2px, -4px) rotate(calc(var(--card-rotation) - 1deg)) scale(1.02);
       z-index: 10;
     }
 
     .card-icon {
       width: 50px;
       height: 50px;
-      border: 2px solid var(--ink-black);
-      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; 
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      background: var(--surface);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 16px;
       font-size: 24px;
+      font-weight: 700;
       overflow: hidden;
-      background: #fff;
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
     }
-    
+
     .card-icon img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      border-radius: inherit; 
+      border-radius: inherit;
     }
 
     .card-title {
-      font-family: 'Gloria Hallelujah', cursive;
+      color: var(--ink);
+      display: -webkit-box;
+      font-family: var(--font-display);
       font-size: 1.3rem;
       font-weight: 700;
-      color: var(--ink-black);
-      margin-bottom: 8px;
       line-height: 1.2;
-      
-      display: -webkit-box;
+      margin-bottom: 8px;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
-    
+
     .card-desc {
-      font-family: 'Patrick Hand', cursive;
-      font-size: 1.1rem;
-      color: var(--pencil-gray);
-      line-height: 1.3;
-      margin-bottom: 16px;
-      flex: 1;
-      
+      color: var(--muted);
       display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
+      flex: 1;
+      font-family: var(--font-main);
+      font-size: 1rem;
+      line-height: 1.45;
+      margin-bottom: 16px;
       overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
     }
 
     .card-tags {
@@ -465,58 +624,238 @@ function getSymbol(title: string, domain: string) {
     }
 
     .tag {
-      font-size: 0.9rem;
+      background: var(--tag-bg, var(--surface));
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--control-radius);
+      color: var(--ink);
+      display: inline-block;
+      font-size: 0.8rem;
       font-weight: 700;
       padding: 4px 10px;
-      border: 2px solid var(--ink-black);
-      border-radius: 15px 225px 255px 15px / 255px 15px 225px 15px;
-      background: #fff;
-      color: var(--ink-black);
-      transform: rotate(-2deg);
-      transition: transform 0.2s;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
     .tag:hover {
-        transform: rotate(2deg) scale(1.1);
-        background: #ffff00;
+      background: var(--accent);
+      border-color: var(--ink);
+      color: #111111;
+      transform: translateY(-1px);
     }
 
     .col-span-2 { grid-column: span 2; }
     .row-span-2 { grid-row: span 2; }
 
     .big .card-title { font-size: 2rem; }
-    .big .card-desc { font-size: 1.3rem; -webkit-line-clamp: 5; }
+    .big .card-desc { font-size: 1.15rem; -webkit-line-clamp: 5; }
     .wide .card-desc { -webkit-line-clamp: 4; }
     .tall .card-desc { -webkit-line-clamp: 6; }
 
     .hidden { display: none !important; }
 
     .loading-scribble {
-        display: inline-block;
-        font-weight: bold;
-        animation: scribble 0.5s infinite alternate;
+      animation: scribble 0.5s infinite alternate;
+      display: inline-block;
+      font-weight: 700;
     }
-    @keyframes scribble { from { opacity: 0.5; transform: rotate(-5deg); } to { opacity: 1; transform: rotate(5deg); } }
 
-    @media (max-width: 1024px) {
-      .header { flex-direction: column; gap: 16px; height: auto; }
-      .search-bar { width: 100%; max-width: none; margin: 0; }
-    }
-    
-    @media (max-width: 640px) {
-       .col-span-2, .row-span-2 { grid-column: span 1; grid-row: span 1; }
-       .brand { flex-direction: column; }
-       .logo { font-size: 2rem; }
-       .header-wrapper { position: static; margin-bottom: 20px; }
+    @keyframes scribble {
+      from { opacity: 0.5; transform: rotate(-5deg); }
+      to { opacity: 1; transform: rotate(5deg); }
     }
 
     .empty-state {
-        text-align: center;
-        padding: 80px 20px;
-        font-family: 'Gloria Hallelujah', cursive;
-        color: var(--pencil-gray);
-        font-size: 1.5rem;
-        grid-column: 1 / -1;
+      color: var(--muted);
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      grid-column: 1 / -1;
+      padding: 80px 20px;
+      text-align: center;
+    }
+
+    .bookmark-status {
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-top: auto;
+    }
+
+    .bookmark-status.failed {
+      color: var(--danger);
+    }
+
+    :root[data-theme="editorial"] .header,
+    :root[data-theme="editorial"] .card {
+      background: var(--surface-strong);
+    }
+
+    :root[data-theme="editorial"] .card {
+      --card-rotation: 0deg !important;
+      --card-radius: var(--radius-soft) !important;
+      --card-border-width: 1px !important;
+    }
+
+    :root[data-theme="editorial"] .card:hover,
+    :root[data-theme="editorial"] .card:focus-visible {
+      transform: translateY(-4px);
+    }
+
+    :root[data-theme="editorial"] .logo-dot {
+      font-style: italic;
+    }
+
+    :root[data-theme="terminal"] .header,
+    :root[data-theme="terminal"] .card,
+    :root[data-theme="terminal"] .search-input,
+    :root[data-theme="terminal"] .stats-pill,
+    :root[data-theme="terminal"] .icon-btn,
+    :root[data-theme="terminal"] .tag {
+      background: var(--surface);
+      border-color: var(--border);
+      box-shadow: none;
+    }
+
+    :root[data-theme="terminal"] .header {
+      border-top-color: var(--ink);
+    }
+
+    :root[data-theme="terminal"] .logo,
+    :root[data-theme="terminal"] .card-title {
+      text-shadow: 0 0 10px rgba(0, 255, 128, 0.42);
+    }
+
+    :root[data-theme="terminal"] .card {
+      --card-rotation: 0deg !important;
+      --card-radius: 0 !important;
+      --card-border-width: 1px !important;
+      min-height: 220px;
+    }
+
+    :root[data-theme="terminal"] .card:hover,
+    :root[data-theme="terminal"] .card:focus-visible {
+      background: rgba(0, 255, 128, 0.04);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-2px);
+    }
+
+    :root[data-theme="terminal"] .card-icon,
+    :root[data-theme="terminal"] .search-input,
+    :root[data-theme="terminal"] .stats-pill,
+    :root[data-theme="terminal"] .icon-btn {
+      box-shadow: none;
+    }
+
+    :root[data-theme="terminal"] .tag {
+      background: transparent;
+      color: var(--accent-2);
+    }
+
+    :root[data-theme="minimal"] .header {
+      border-top-color: var(--border-soft);
+      border-left-color: var(--border-soft);
+      border-right-width: 3px;
+      border-bottom-width: 3px;
+    }
+
+    :root[data-theme="minimal"] .card {
+      --card-rotation: 0deg !important;
+      --card-radius: 0 !important;
+      --card-border-width: 1px !important;
+      border-top-color: var(--border-soft);
+      border-left-color: var(--border-soft);
+      border-right-width: 3px;
+      border-bottom-width: 3px;
+    }
+
+    :root[data-theme="minimal"] .card:hover,
+    :root[data-theme="minimal"] .card:focus-visible {
+      transform: translateY(-3px);
+    }
+
+    :root[data-theme="minimal"] .tag {
+      border-color: var(--border-soft);
+    }
+
+    :root[data-theme="glass"] .header,
+    :root[data-theme="glass"] .card,
+    :root[data-theme="glass"] .search-input,
+    :root[data-theme="glass"] .stats-pill,
+    :root[data-theme="glass"] .icon-btn {
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      backdrop-filter: blur(40px) saturate(180%);
+    }
+
+    :root[data-theme="glass"] .card {
+      --card-rotation: 0deg !important;
+      --card-radius: var(--radius) !important;
+      --card-border-width: 1px !important;
+      background: var(--surface);
+    }
+
+    :root[data-theme="glass"] .card:hover,
+    :root[data-theme="glass"] .card:focus-visible {
+      transform: translateY(-4px);
+    }
+
+    :root[data-theme="glass"] .tag,
+    :root[data-theme="glass"] .card-icon {
+      background: rgba(255, 255, 255, 0.78);
+      border-color: var(--border-soft);
+    }
+
+    @media (max-width: 1024px) {
+      .header {
+        flex-direction: column;
+        gap: 16px;
+        height: auto;
+      }
+
+      .search-bar {
+        width: 100%;
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .col-span-2,
+      .row-span-2 {
+        grid-column: span 1;
+        grid-row: span 1;
+      }
+
+      .brand {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .logo {
+        font-size: 2rem;
+      }
+
+      .header-wrapper {
+        position: static;
+        margin-bottom: 20px;
+      }
+
+      .header {
+        padding: 16px;
+      }
+
+      .controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0ms !important;
+        transition-duration: 0ms !important;
+      }
     }
   </style>
 </head>
@@ -531,7 +870,7 @@ function getSymbol(title: string, domain: string) {
       </a>
 
       <div class="search-bar">
-        <input type="text" id="searchInput" class="search-input" placeholder="Search sketches..." autocomplete="off">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search bookmarks..." autocomplete="off">
         <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </div>
 
@@ -554,7 +893,7 @@ function getSymbol(title: string, domain: string) {
       <div class="grid-container" id="bookmarkGrid">
         {bookmarks.map((item, index) => {
           const domain = getDomain(item.url);
-          const { bg, text, border, gradient } = getIconColors(domain);
+          const { bg, text } = getIconColors(domain);
           const sizeClass = getCardSize(item.id, index);
           const displayTitle = item.ai?.title || item.title;
           const symbol = getSymbol(displayTitle, domain);
@@ -573,9 +912,9 @@ function getSymbol(title: string, domain: string) {
               rel="noopener"
               class={`card ${sizeClass}`}
               style={`
-                transform: rotate(${randomStyles.rotation}deg);
-                border-radius: ${randomStyles.sketchBorder};
-                border-width: ${randomStyles.borderWidth}px;
+                --card-rotation: ${randomStyles.rotation}deg;
+                --card-radius: ${randomStyles.sketchBorder};
+                --card-border-width: ${randomStyles.borderWidth}px;
                 --hover-scale: 1.02;
               `}
               data-domain={domain}
@@ -583,8 +922,6 @@ function getSymbol(title: string, domain: string) {
               data-bg={bg}
               data-text={text}
               data-disable-online={DISABLE_ONLINE_FAVICON}
-              onmouseenter="this.style.transform=`translate(-2px, -4px) rotate(${randomStyles.rotation - 1}deg) scale(var(--hover-scale))`"
-              onmouseleave={`this.style.transform='rotate(${randomStyles.rotation}deg)'`}
             >
               <div
                 class="card-icon"
@@ -616,20 +953,20 @@ function getSymbol(title: string, domain: string) {
                     <p class="card-desc">{item.ai.summary || 'No scribbles yet.'}</p>
                     <div class="card-tags">
                       {item.ai.tags.slice(0, sizeClass.includes('big') ? 6 : sizeClass.includes('wide') || sizeClass.includes('tall') ? 4 : 3).map(tag => (
-                        <span class="tag" style={`background: ${tagBg}`}>
+                        <span class="tag" style={`--tag-bg: ${tagBg}`}>
                           #{tag}
                         </span>
                       ))}
                     </div>
                   </>
                 ) : item.aiFailed ? (
-                  <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #c0392b; font-weight: bold;">
+                  <div class="bookmark-status failed">
                     <span>✕ Failed</span>
                   </div>
                 ) : (
-                  <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--pencil-gray);">
+                  <div class="bookmark-status">
                     <span class="loading-scribble">✎</span>
-                    <span>Sketching...</span>
+                    <span>Enriching...</span>
                   </div>
                 )}
               </div>
