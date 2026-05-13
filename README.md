@@ -105,6 +105,8 @@ Vercel 提供免费的托管服务，非常适合部署本项目的 Web 端。
    - `minimal`：Japanese Minimalism，和风极简
    - `glass`：Glassmorphism Light，浅色毛玻璃
 
+   `WEB_THEME` 只控制部署后的默认主题。页面右上角也可以直接切换主题，选择会保存到当前浏览器，并覆盖该浏览器里的默认显示。
+
 5. **部署**
    - 点击 `Deploy` 按钮，等待部署完成
    - 部署成功后，访问 Vercel 提供的域名即可查看你的书签库

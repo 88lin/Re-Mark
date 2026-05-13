@@ -269,7 +269,7 @@ async function handleUpload(force = false, source: UploadSource = 'manual') {
     }
 
     const syncData: SyncData = {
-      version: '1.0.0',
+      version: '2.0',
       updatedAt: Date.now(),
       browser: navigator.userAgent,
       items: items
