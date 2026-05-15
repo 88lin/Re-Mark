@@ -45,6 +45,8 @@ const locales: Record<
     enrichStoppedTitle: string;
     enrichStoppedMessage: (processed: number, remaining: number) => string;
     enrichFailedTitle: string;
+    retryFailedStartedTitle: string;
+    retryFailedStartedMessage: string;
   }
 > = {
   en: {
@@ -73,7 +75,9 @@ const locales: Record<
     enrichCompletedMessage: 'All bookmarks enriched',
     enrichStoppedTitle: 'Enrich Stopped',
     enrichStoppedMessage: (processed, remaining) => `Processed ${processed}, remaining ${remaining} (retryable)`,
-    enrichFailedTitle: 'Enrich Failed'
+    enrichFailedTitle: 'Enrich Failed',
+    retryFailedStartedTitle: 'Retry Failed Started',
+    retryFailedStartedMessage: 'Resetting failed bookmarks and re-enriching...'
   },
   zh: {
     missingToken: '请在设置中配置 GitHub Token',
@@ -101,7 +105,9 @@ const locales: Record<
     enrichCompletedMessage: '所有书签已富化',
     enrichStoppedTitle: '富化已暂停',
     enrichStoppedMessage: (processed, remaining) => `已处理 ${processed}，剩余 ${remaining}（可重试）`,
-    enrichFailedTitle: '富化失败'
+    enrichFailedTitle: '富化失败',
+    retryFailedStartedTitle: '重试失败书签',
+    retryFailedStartedMessage: '正在重置失败书签并重新富化...'
   }
 };
 
@@ -149,6 +155,7 @@ export default defineBackground(() => {
       download: handleDownload,
       clear: handleClear,
       enrich: handleEnrich,
+      retryFailed: handleRetryFailed,
       refresh: handleRefresh
     };
 
@@ -411,6 +418,34 @@ async function handleEnrich() {
   await showNotification(locale.enrichStartedTitle, locale.enrichStartedMessage);
 }
 
+async function handleRetryFailed() {
+  const locale = localeText();
+  const settings = await getSettings();
+
+  if (!settings.githubToken || !settings.gistId) throw new Error(locale.missingTokenAndGist);
+  if (!settings.webUrl || !settings.apiSecret) throw new Error(locale.missingWebSettings);
+
+  await ensureHostPermission(settings.webUrl);
+
+  try {
+    const { runRetryFailedStep } = await import('../utils/enrich');
+    const aiConfig = {
+      aiApiKey: settings.aiApiKey,
+      aiApiUrl: settings.aiApiUrl,
+      aiModel: settings.aiModel,
+      jinaApiKey: settings.jinaApiKey
+    };
+    const result = await runRetryFailedStep(settings.webUrl, settings.apiSecret, aiConfig);
+    await showNotification(
+      locale.enrichCompletedTitle,
+      `Reset & enriched: ${result.processed ?? 0} processed, ${result.remaining ?? 0} remaining`
+    );
+  } catch (err) {
+    await showNotification(locale.enrichFailedTitle, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
 async function runEnrichJobStep() {
   if (isEnrichStepRunning) return;
   isEnrichStepRunning = true;
@@ -446,7 +481,13 @@ async function runEnrichJobStepUnsafe() {
 
   try {
     const { runEnrichStep } = await import('../utils/enrich');
-    const result = await runEnrichStep(settings.webUrl, settings.apiSecret);
+    const aiConfig = {
+      aiApiKey: settings.aiApiKey,
+      aiApiUrl: settings.aiApiUrl,
+      aiModel: settings.aiModel,
+      jinaApiKey: settings.jinaApiKey
+    };
+    const result = await runEnrichStep(settings.webUrl, settings.apiSecret, aiConfig);
     const nextJob = finishEnrichJobStep(startedJob, result, Date.now(), ENRICH_STEP_DELAY_MS);
     await setEnrichJob(nextJob);
 

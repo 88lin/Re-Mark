@@ -35,4 +35,8 @@ export interface Settings {
   autoSync: boolean;
   syncDelay: number;
   theme: ThemeName;
+  aiApiKey: string;
+  aiApiUrl: string;
+  aiModel: string;
+  jinaApiKey: string;
 }

@@ -26,6 +26,9 @@ const Icons = {
   ),
   EyeOff: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+  ),
+  Sparkles: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 21v4"/><path d="M3 5h4"/><path d="M21 19h4"/></svg>
   )
 };
 
@@ -37,12 +40,18 @@ export default function App() {
     webUrl: '',
     autoSync: false,
     syncDelay: 5,
-    theme: 'brutalist'
+    theme: 'brutalist',
+    aiApiKey: '',
+    aiApiUrl: '',
+    aiModel: '',
+    jinaApiKey: ''
   });
   const [saved, setSaved] = useState(false);
   const [lang, setLang] = useState('en');
   const [showGithubToken, setShowGithubToken] = useState(false);
   const [showApiSecret, setShowApiSecret] = useState(false);
+  const [showAiApiKey, setShowAiApiKey] = useState(false);
+  const [showJinaApiKey, setShowJinaApiKey] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -118,7 +127,21 @@ export default function App() {
       '可选站点权限：首次富化时会请求你配置的 Web 域名，仅用于调用 /api/enrich'
     ],
     permissionDenied: '未获得对填入 Web URL 的站点权限，富化可能失败。',
-    invalidWebUrl: '请输入有效的 Web URL（例如：https://example.com）。'
+    invalidWebUrl: '请输入有效的 Web URL（例如：https://example.com）。',
+    aiConfig: 'AI 配置（可选）',
+    aiConfigDesc: '在此配置 AI 模型信息，优先级高于 Vercel 环境变量。填写后无需重新部署即可切换模型。',
+    aiApiKey: 'AI API Key',
+    aiApiKeyPlaceholder: 'sk-xxxxxxxxxxxx',
+    aiApiKeyHint: 'DeepSeek / OpenAI / 小米 等兼容 API 的 Key',
+    aiApiUrl: 'AI API URL',
+    aiApiUrlPlaceholder: 'https://api.deepseek.com/v1/chat/completions',
+    aiApiUrlHint: '完整的 API 地址，需包含 /v1/chat/completions',
+    aiModel: 'AI 模型名称',
+    aiModelPlaceholder: 'deepseek-chat',
+    aiModelHint: '如 deepseek-chat、gpt-4o-mini 等',
+    jinaApiKey: 'Jina API Key（可选）',
+    jinaApiKeyPlaceholder: 'jina_xxxxxxxxxxxx',
+    jinaApiKeyHint: '用于 Jina Reader 抓取网页内容，留空则使用免费额度'
   } : {
     title: 'Re:Mark Settings',
     githubConfig: 'GitHub Configuration',
@@ -158,7 +181,21 @@ export default function App() {
       'Optional site access: requested for your configured Web URL to call /api/enrich'
     ],
     permissionDenied: 'Site permission was denied for the configured Web URL; enrich may fail.',
-    invalidWebUrl: 'Please enter a valid Web URL (e.g., https://example.com).'
+    invalidWebUrl: 'Please enter a valid Web URL (e.g., https://example.com).',
+    aiConfig: 'AI Configuration (Optional)',
+    aiConfigDesc: 'Configure AI model settings here. These take priority over Vercel environment variables, so you can switch models without redeploying.',
+    aiApiKey: 'AI API Key',
+    aiApiKeyPlaceholder: 'sk-xxxxxxxxxxxx',
+    aiApiKeyHint: 'Key for DeepSeek / OpenAI / Xiaomi or any compatible API',
+    aiApiUrl: 'AI API URL',
+    aiApiUrlPlaceholder: 'https://api.deepseek.com/v1/chat/completions',
+    aiApiUrlHint: 'Full API endpoint URL, must include /v1/chat/completions',
+    aiModel: 'AI Model Name',
+    aiModelPlaceholder: 'deepseek-chat',
+    aiModelHint: 'e.g. deepseek-chat, gpt-4o-mini, etc.',
+    jinaApiKey: 'Jina API Key (Optional)',
+    jinaApiKeyPlaceholder: 'jina_xxxxxxxxxxxx',
+    jinaApiKeyHint: 'Used by Jina Reader for web content fetching; leave empty to use free tier'
   };
 
   return (
@@ -220,6 +257,51 @@ export default function App() {
               <label>{t.webUrl}</label>
               <input type="text" className="input-primary" value={settings.webUrl} onChange={e => updateField('webUrl', e.target.value)} placeholder={t.webUrlPlaceholder} />
               <small>{t.webUrlHint}</small>
+            </div>
+          </div>
+        </section>
+
+        <section className="card section-ai">
+          <div className="card-header">
+            <div className="icon-box orange"><Icons.Sparkles /></div>
+            <h2>{t.aiConfig}</h2>
+          </div>
+
+          <div className="card-body">
+            <p className="description-text">{t.aiConfigDesc}</p>
+
+            <div className="field">
+              <label>{t.aiApiKey}</label>
+              <div className="input-with-toggle">
+                <input type={showAiApiKey ? "text" : "password"} className="input-primary" value={settings.aiApiKey} onChange={e => updateField('aiApiKey', e.target.value)} placeholder={t.aiApiKeyPlaceholder} />
+                <button type="button" className="toggle-visibility" onClick={() => setShowAiApiKey(!showAiApiKey)} title={showAiApiKey ? "隐藏" : "显示"}>
+                  {showAiApiKey ? <Icons.EyeOff /> : <Icons.Eye />}
+                </button>
+              </div>
+              <small>{t.aiApiKeyHint}</small>
+            </div>
+
+            <div className="field">
+              <label>{t.aiApiUrl}</label>
+              <input type="text" className="input-primary" value={settings.aiApiUrl} onChange={e => updateField('aiApiUrl', e.target.value)} placeholder={t.aiApiUrlPlaceholder} />
+              <small>{t.aiApiUrlHint}</small>
+            </div>
+
+            <div className="field">
+              <label>{t.aiModel}</label>
+              <input type="text" className="input-primary" value={settings.aiModel} onChange={e => updateField('aiModel', e.target.value)} placeholder={t.aiModelPlaceholder} />
+              <small>{t.aiModelHint}</small>
+            </div>
+
+            <div className="field">
+              <label>{t.jinaApiKey}</label>
+              <div className="input-with-toggle">
+                <input type={showJinaApiKey ? "text" : "password"} className="input-primary" value={settings.jinaApiKey} onChange={e => updateField('jinaApiKey', e.target.value)} placeholder={t.jinaApiKeyPlaceholder} />
+                <button type="button" className="toggle-visibility" onClick={() => setShowJinaApiKey(!showJinaApiKey)} title={showJinaApiKey ? "隐藏" : "显示"}>
+                  {showJinaApiKey ? <Icons.EyeOff /> : <Icons.Eye />}
+                </button>
+              </div>
+              <small>{t.jinaApiKeyHint}</small>
             </div>
           </div>
         </section>

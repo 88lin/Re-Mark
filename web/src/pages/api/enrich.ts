@@ -76,8 +76,29 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  // Parse body for AI config and resetFailed flag
+  let bodyData: any = {};
   try {
-    const result = await enrichItemsLoop();
+    bodyData = JSON.parse(body);
+  } catch {}
+
+  // Prefer extension-provided values, fall back to env vars
+  const aiApiKey = bodyData.aiApiKey || import.meta.env.AI_API_KEY;
+  const aiApiUrl = bodyData.aiApiUrl || import.meta.env.AI_API_URL || 'https://api.deepseek.com/v1/chat/completions';
+  const aiModel = bodyData.aiModel || import.meta.env.AI_MODEL || 'deepseek-chat';
+  const jinaApiKey = bodyData.jinaApiKey || import.meta.env.JINA_API_KEY;
+  const resetFailed = !!bodyData.resetFailed;
+
+  console.log('[enrich] Config sources:', {
+    aiApiKeyFrom: bodyData.aiApiKey ? 'extension' : 'env',
+    aiApiUrlFrom: bodyData.aiApiUrl ? 'extension' : 'env',
+    aiModelFrom: bodyData.aiModel ? 'extension' : 'env',
+    jinaApiKeyFrom: bodyData.jinaApiKey ? 'extension' : 'env',
+    resetFailed
+  });
+
+  try {
+    const result = await enrichItemsLoop({ aiApiKey, aiApiUrl, aiModel, jinaApiKey, resetFailed });
 
     console.log(`[3] Enrichment completed: ${result.processed} processed, ${result.remaining} remaining, batches: ${result.batches}, timedOut: ${result.timedOut}`);
 
@@ -139,8 +160,16 @@ async function verifySignature(payload: string, signature: string, secret: strin
   return await crypto.subtle.verify('HMAC', cryptoKey, signatureBytes, data);
 }
 
-async function enrichItemsLoop(): Promise<{ processed: number; remaining: number; batches: number; timedOut: boolean }> {
-  console.log('[enrichItemsLoop] Starting enrichment loop...');
+interface EnrichLoopConfig {
+  aiApiKey: string;
+  aiApiUrl: string;
+  aiModel: string;
+  jinaApiKey: string;
+  resetFailed: boolean;
+}
+
+async function enrichItemsLoop(config: EnrichLoopConfig): Promise<{ processed: number; remaining: number; batches: number; timedOut: boolean }> {
+  console.log('[enrichItemsLoop] Starting enrichment loop...', { resetFailed: config.resetFailed });
 
   const githubToken = import.meta.env.GITHUB_TOKEN;
   const gistRawUrl = normalizeGistRawUrl(import.meta.env.GIST_RAW_URL || '');
@@ -161,6 +190,22 @@ async function enrichItemsLoop(): Promise<{ processed: number; remaining: number
 
   if (!data || !data.items) {
     throw new Error('Failed to fetch gist data');
+  }
+
+  // If resetFailed, clear all aiFailed fields so they can be retried
+  if (config.resetFailed) {
+    let resetCount = 0;
+    data.items.forEach((item: any) => {
+      if (item.aiFailed) {
+        delete item.aiFailed;
+        resetCount++;
+      }
+    });
+    console.log(`[enrichItemsLoop] Reset ${resetCount} failed bookmarks`);
+    if (resetCount > 0) {
+      await updateGist(githubToken, gistId, data);
+      console.log('[enrichItemsLoop] Gist updated after resetting failed items');
+    }
   }
 
   const BATCH_SIZE = 5;
@@ -190,7 +235,7 @@ async function enrichItemsLoop(): Promise<{ processed: number; remaining: number
 
     console.log(`[enrichItemsLoop] Processing ${itemsToProcess.length} items (batch ${batches + 1})...`);
 
-    const result = await enrichItems(itemsToProcess, data);
+    const result = await enrichItems(itemsToProcess, data, config);
 
     if (result.changed) {
       console.log(`[enrichItemsLoop] Writing ${result.successCount} enriched items to gist...`);
@@ -300,26 +345,28 @@ async function updateGist(githubToken: string, gistId: string, data: any): Promi
   }
 }
 
-async function enrichItems(items: BookmarkItem[], data: any): Promise<EnrichResult> {
+async function enrichItems(items: BookmarkItem[], data: any, config: EnrichLoopConfig): Promise<EnrichResult> {
   console.log('[enrichItems] Function started');
 
-  console.log('[enrichItems] Reading environment variables...');
-  const aiApiKey = import.meta.env.AI_API_KEY;
-  const aiApiUrl = import.meta.env.AI_API_URL || 'https://api.deepseek.com/v1/chat/completions';
-  const aiModel = import.meta.env.AI_MODEL || 'deepseek-chat';
-  const jinaApiKey = import.meta.env.JINA_API_KEY;
+  // Use config passed from the loop (which already prefers extension values over env vars)
+  const aiApiKey = config.aiApiKey;
+  const aiApiUrl = config.aiApiUrl;
+  const aiModel = config.aiModel;
+  const jinaApiKey = config.jinaApiKey;
 
-  console.log('[enrichItems] Environment variables loaded:', {
+  console.log('[enrichItems] AI config loaded:', {
     hasAiApiKey: !!aiApiKey,
-    hasJinaApiKey: !!jinaApiKey
+    hasJinaApiKey: !!jinaApiKey,
+    aiApiUrl,
+    aiModel
   });
 
   if (!aiApiKey) {
-    console.error('[enrichItems] Missing AI_API_KEY');
+    console.error('[enrichItems] Missing AI API Key (neither extension settings nor env var)');
     return { successCount: 0, failCount: 0, changed: false };
   }
 
-  console.log('[enrichItems] All required env vars present, proceeding...');
+  console.log('[enrichItems] All required config present, proceeding...');
 
   try {
     let successCount = 0;

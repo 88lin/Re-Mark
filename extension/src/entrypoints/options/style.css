@@ -297,7 +297,8 @@ button {
 .icon-box.purple,
 .icon-box.green,
 .icon-box.gray,
-.icon-box.yellow {
+.icon-box.yellow,
+.icon-box.orange {
   color: inherit;
 }
 

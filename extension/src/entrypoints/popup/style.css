@@ -505,6 +505,20 @@ button {
   align-items: center;
 }
 
+.action-card.retry-failed {
+  grid-column: span 2;
+  flex-direction: row;
+  align-items: center;
+  border-color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.action-card.retry-failed:hover:not(:disabled),
+.action-card.retry-failed:focus-visible {
+  background: var(--accent);
+  color: #111111;
+}
+
 .action-card:hover:not(:disabled),
 .action-card:focus-visible {
   background: var(--ink);

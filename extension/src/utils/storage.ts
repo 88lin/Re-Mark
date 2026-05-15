@@ -8,7 +8,11 @@ const DEFAULT_SETTINGS: Settings = {
   webUrl: '',
   autoSync: false,
   syncDelay: 5,
-  theme: 'brutalist'
+  theme: 'brutalist',
+  aiApiKey: '',
+  aiApiUrl: '',
+  aiModel: '',
+  jinaApiKey: ''
 };
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];

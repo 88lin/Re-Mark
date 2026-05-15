@@ -7,12 +7,28 @@ type EnrichResponse = {
   completed?: boolean;
   batches?: number;
   timedOut?: boolean;
+  failedCount?: number;
 };
 
-async function callEnrichAPI(webUrl: string, apiSecret: string): Promise<EnrichResponse> {
+interface AiConfig {
+  aiApiKey: string;
+  aiApiUrl: string;
+  aiModel: string;
+  jinaApiKey: string;
+}
+
+async function callEnrichAPI(
+  webUrl: string,
+  apiSecret: string,
+  aiConfig: AiConfig,
+  resetFailed?: boolean
+): Promise<EnrichResponse> {
   const timestamp = Date.now().toString();
   const nonce = crypto.randomUUID();
-  const payload = JSON.stringify({});
+  const payload = JSON.stringify({
+    ...aiConfig,
+    resetFailed: !!resetFailed
+  });
   const signature = await generateSignature(payload, apiSecret);
 
   const response = await fetch(`${webUrl}/api/enrich`, {
@@ -30,6 +46,18 @@ async function callEnrichAPI(webUrl: string, apiSecret: string): Promise<EnrichR
   return (await response.json()) as EnrichResponse;
 }
 
-export async function runEnrichStep(webUrl: string, apiSecret: string): Promise<EnrichResponse> {
-  return callEnrichAPI(webUrl, apiSecret);
+export async function runEnrichStep(
+  webUrl: string,
+  apiSecret: string,
+  aiConfig: AiConfig
+): Promise<EnrichResponse> {
+  return callEnrichAPI(webUrl, apiSecret, aiConfig, false);
+}
+
+export async function runRetryFailedStep(
+  webUrl: string,
+  apiSecret: string,
+  aiConfig: AiConfig
+): Promise<EnrichResponse> {
+  return callEnrichAPI(webUrl, apiSecret, aiConfig, true);
 }

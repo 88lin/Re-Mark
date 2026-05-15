@@ -22,6 +22,9 @@ const Icons = {
   Trash: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
   ),
+  RetryFailed: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+  ),
   Settings: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
   ),
@@ -86,7 +89,8 @@ const locales = {
     enrichRunning: (processed: number, remaining: number) => `Enriching ${processed} done, ${remaining} left`,
     enrichPaused: (remaining: number) => `Enrich paused, ${remaining} left`,
     enrichCompleted: (processed: number) => `Enrich complete, ${processed} done`,
-    enrichFailed: 'Enrich failed'
+    enrichFailed: 'Enrich failed',
+    retryFailed: 'Retry Failed',
   },
   zh: {
     subtitle: '普通的高级书签',
@@ -137,7 +141,8 @@ const locales = {
     enrichRunning: (processed: number, remaining: number) => `富化中：已处理 ${processed}，剩余 ${remaining}`,
     enrichPaused: (remaining: number) => `富化已暂停，剩余 ${remaining}`,
     enrichCompleted: (processed: number) => `富化完成，已处理 ${processed}`,
-    enrichFailed: '富化失败'
+    enrichFailed: '富化失败',
+    retryFailed: '重试失败',
   }
 };
 
@@ -536,6 +541,13 @@ export default function App() {
         {renderActionButton('download')}
         {hasWebIntegration && renderActionButton('enrich')}
       </div>
+
+      {hasWebIntegration && (
+        <button className="action-card full-width retry-failed" onClick={() => handleAction('retryFailed')} disabled={loading}>
+          <span className="action-icon"><Icons.RetryFailed /></span>
+          <span>{t.retryFailed}</span>
+        </button>
+      )}
 
       {hasWebIntegration && enrichStatusText && (
         <div className={`enrich-status ${enrichJob?.state ?? 'idle'}`}>
