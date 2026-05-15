@@ -431,7 +431,7 @@ async function handleRetryFailed() {
   const existingJob = await getEnrichJob();
   const now = Date.now();
   const nextJob = existingJob && (existingJob.state === 'running' || existingJob.state === 'paused')
-    ? { ...startEnrichJobStep(existingJob, now), resetFailed: true, failedCount: 0, processed: 0 }
+    ? { ...startEnrichJobStep(existingJob, now), resetFailed: true, failedCount: 0 }
     : createEnrichJob(now, true);
 
   await setEnrichJob(nextJob);

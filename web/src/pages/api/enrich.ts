@@ -395,34 +395,28 @@ async function enrichItems(items: BookmarkItem[], data: any, config: EnrichLoopC
           }
 
           const content = await fetchContent(item.url, jinaApiKey);
+          const hasContent = !!content && content.trim().length > 0;
 
-          if (!content) {
-            console.log(`No content for ${item.id}, will mark as failed`);
-            const existingItem = data.items.find((i: any) => i.id === item.id);
-            if (existingItem) {
-              const attempts = (existingItem.aiFailed?.attempts ?? 0) + 1;
-              existingItem.aiFailed = {
-                reason: 'No content',
-                attempts,
-                failedAt: Date.now()
-              };
-              changed = true;
-            }
-            return { success: false, itemId: item.id };
-          }
-
+          // Even without content, still call AI with URL + title
+          // The AI can generate useful summaries from just the URL and title
           const aiResult = await callAI({
             apiUrl: aiApiUrl,
             apiKey: aiApiKey,
             model: aiModel,
             originalTitle: item.title,
             url: item.url,
-            content,
+            content: hasContent ? content : '',
           });
 
-          if (!aiResult.summary || !aiResult.tags || aiResult.tags.length === 0) {
+          // When no content available, be more lenient: accept result even without summary/tags
+          // The AI can still provide a useful title based on URL alone
+          if (hasContent && (!aiResult.summary || !aiResult.tags || aiResult.tags.length === 0)) {
             throw new Error('AI result missing summary or tags');
           }
+
+          // For no-content items, fill in defaults if AI couldn't generate them
+          const finalSummary = aiResult.summary || `基于URL推断: ${item.url}`;
+          const finalTags = (aiResult.tags && aiResult.tags.length > 0) ? aiResult.tags : [new URL(item.url).hostname];
 
           let cover: string | boolean = false;
           try {
@@ -443,8 +437,8 @@ async function enrichItems(items: BookmarkItem[], data: any, config: EnrichLoopC
             existingItem.title = optimizedTitle;
             existingItem.ai = {
               title: aiResult.title || optimizedTitle,
-              summary: aiResult.summary,
-              tags: aiResult.tags,
+              summary: finalSummary,
+              tags: finalTags,
               cover,
               enrichedAt: Date.now()
             };
@@ -574,11 +568,12 @@ async function fetchContent(url: string, jinaApiKey?: string): Promise<string> {
     try {
       const directRes = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ReMarkBot/1.0; +https://github.com/yourusername/remark)',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
         },
-        signal: AbortSignal.timeout(5000),
+        redirect: 'follow',
+        signal: AbortSignal.timeout(8000),
       });
 
       if (directRes.ok) {
@@ -587,6 +582,18 @@ async function fetchContent(url: string, jinaApiKey?: string): Promise<string> {
         if (contentType.includes('text/html') || contentType.includes('application/xhtml')) {
           const html = await directRes.text();
 
+          // Try to extract meta description, og:description, title etc. as fallback
+          const metaContent: string[] = [];
+
+          const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+          if (ogDescMatch) metaContent.push(ogDescMatch[1]);
+
+          const metaDescMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+          if (metaDescMatch) metaContent.push(metaDescMatch[1]);
+
+          const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+          if (ogTitleMatch) metaContent.push(ogTitleMatch[1]);
+
           const cleanText = html
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
@@ -594,9 +601,21 @@ async function fetchContent(url: string, jinaApiKey?: string): Promise<string> {
             .replace(/\s+/g, ' ')
             .trim();
 
-          if (cleanText.length > 100) {
-            console.log(`[fetchContent] ✅ Direct fetch success (${cleanText.length} chars)`);
-            return cleanText.slice(0, 2000);
+          // Combine body text with meta content
+          const combinedText = [...metaContent, cleanText].filter(Boolean).join(' ').trim();
+
+          if (combinedText.length > 50) {
+            console.log(`[fetchContent] ✅ Direct fetch success (${combinedText.length} chars, meta: ${metaContent.length} fields)`);
+            return combinedText.slice(0, 2000);
+          }
+
+          // Even if body is short, meta description alone is valuable for AI
+          if (metaContent.length > 0) {
+            const metaText = metaContent.join(' ').trim();
+            if (metaText.length > 20) {
+              console.log(`[fetchContent] ✅ Direct fetch meta-only success (${metaText.length} chars)`);
+              return metaText.slice(0, 2000);
+            }
           }
         }
       }
@@ -698,7 +717,7 @@ async function callAI({ apiUrl, apiKey, model, originalTitle, url, content }: Ai
         })
       }],
       temperature: 0.3,
-      max_tokens: 150
+      max_tokens: 300
     }),
     signal: AbortSignal.timeout(40000)
   });

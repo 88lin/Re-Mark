@@ -90,7 +90,8 @@ const locales = {
       `Enriching: ${processed} done, ${remaining} left${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
     enrichPaused: (remaining: number, failedCount: number) =>
       `Enrich paused, ${remaining} left${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
-    enrichCompleted: (processed: number) => `Enrich complete, ${processed} done`,
+    enrichCompleted: (processed: number, failedCount: number) =>
+      `Enrich complete, ${processed} done${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
     enrichFailed: 'Enrich failed',
     retryFailed: 'Retry Failed Bookmarks',
     retryFailedDesc: (count: number) => `Reset ${count} failed bookmarks and re-enrich`,
@@ -145,7 +146,8 @@ const locales = {
       `富化中：已处理 ${processed}，剩余 ${remaining}${failedCount > 0 ? `，失败 ${failedCount}` : ''}`,
     enrichPaused: (remaining: number, failedCount: number) =>
       `富化已暂停，剩余 ${remaining}${failedCount > 0 ? `，失败 ${failedCount}` : ''}`,
-    enrichCompleted: (processed: number) => `富化完成，已处理 ${processed}`,
+    enrichCompleted: (processed: number, failedCount: number) =>
+      `富化完成，已处理 ${processed}${failedCount > 0 ? `，失败 ${failedCount}` : ''}`,
     enrichFailed: '富化失败',
     retryFailed: '重试失败书签',
     retryFailedDesc: (count: number) => `重置 ${count} 个失败书签并重新富化`,
@@ -282,7 +284,7 @@ export default function App() {
     const failedCount = enrichJob.failedCount ?? 0;
     if (enrichJob.state === 'running') return t.enrichRunning(enrichJob.processed, enrichJob.remaining, failedCount);
     if (enrichJob.state === 'paused') return t.enrichPaused(enrichJob.remaining, failedCount);
-    if (enrichJob.state === 'completed') return t.enrichCompleted(enrichJob.processed);
+    if (enrichJob.state === 'completed') return t.enrichCompleted(enrichJob.processed, failedCount);
     return enrichJob.lastError ? `${t.enrichFailed}: ${enrichJob.lastError}` : t.enrichFailed;
   }
 
