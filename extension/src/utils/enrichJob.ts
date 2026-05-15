@@ -4,31 +4,29 @@ export interface EnrichJobState {
   state: EnrichJobStatus;
   processed: number;
   remaining: number;
+  failedCount: number;
   attempt: number;
   startedAt: number;
   updatedAt: number;
   nextRunAt?: number;
   lastError?: string;
   noProgressSteps?: number;
-}
-
-export interface EnrichStepResult {
-  processed?: number;
-  remaining?: number;
-  completed?: boolean;
+  resetFailed?: boolean;
 }
 
 const BASE_RETRY_DELAY_MS = 15_000;
 const MAX_RETRY_DELAY_MS = 600_000;
 
-export function createEnrichJob(now: number): EnrichJobState {
+export function createEnrichJob(now: number, resetFailed = false): EnrichJobState {
   return {
     state: 'running',
     processed: 0,
     remaining: 0,
+    failedCount: 0,
     attempt: 0,
     startedAt: now,
-    updatedAt: now
+    updatedAt: now,
+    resetFailed
   };
 }
 
@@ -40,6 +38,13 @@ export function startEnrichJobStep(job: EnrichJobState, now: number): EnrichJobS
     nextRunAt: undefined,
     lastError: undefined
   };
+}
+
+export interface EnrichStepResult {
+  processed?: number;
+  remaining?: number;
+  completed?: boolean;
+  failedCount?: number;
 }
 
 export function finishEnrichJobStep(
@@ -58,12 +63,14 @@ export function finishEnrichJobStep(
     state: completed ? 'completed' : 'running',
     processed: job.processed + processed,
     remaining,
+    failedCount: result.failedCount ?? job.failedCount,
     attempt: job.attempt + 1,
     startedAt: job.startedAt,
     updatedAt: now,
     nextRunAt: completed ? undefined : now + nextDelayMs,
     lastError: undefined,
-    noProgressSteps
+    noProgressSteps,
+    resetFailed: false
   };
 }
 

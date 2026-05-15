@@ -52,6 +52,8 @@ export default function App() {
   const [showApiSecret, setShowApiSecret] = useState(false);
   const [showAiApiKey, setShowAiApiKey] = useState(false);
   const [showJinaApiKey, setShowJinaApiKey] = useState(false);
+  const [testAiLoading, setTestAiLoading] = useState(false);
+  const [testAiResult, setTestAiResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -81,6 +83,24 @@ export default function App() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save or request permission');
+    }
+  }
+
+  async function handleTestAi() {
+    setTestAiLoading(true);
+    setTestAiResult(null);
+    try {
+      const response = await browser.runtime.sendMessage({ action: 'testAi' });
+      if (response.success) {
+        setTestAiResult({ success: true, message: response.message });
+      } else {
+        setTestAiResult({ success: false, message: response.error });
+      }
+    } catch (err) {
+      setTestAiResult({ success: false, message: err instanceof Error ? err.message : '测试失败' });
+    } finally {
+      setTestAiLoading(false);
+      setTimeout(() => setTestAiResult(null), 8000);
     }
   }
 
@@ -141,7 +161,11 @@ export default function App() {
     aiModelHint: '如 deepseek-chat、gpt-4o-mini 等',
     jinaApiKey: 'Jina API Key（可选）',
     jinaApiKeyPlaceholder: 'jina_xxxxxxxxxxxx',
-    jinaApiKeyHint: '用于 Jina Reader 抓取网页内容，留空则使用免费额度'
+    jinaApiKeyHint: '用于 Jina Reader 抓取网页内容，留空则使用免费额度',
+    testAi: '测试连接',
+    testAiLoading: '测试中...',
+    testAiSuccess: '连接成功',
+    testAiFail: '连接失败',
   } : {
     title: 'Re:Mark Settings',
     githubConfig: 'GitHub Configuration',
@@ -195,7 +219,11 @@ export default function App() {
     aiModelHint: 'e.g. deepseek-chat, gpt-4o-mini, etc.',
     jinaApiKey: 'Jina API Key (Optional)',
     jinaApiKeyPlaceholder: 'jina_xxxxxxxxxxxx',
-    jinaApiKeyHint: 'Used by Jina Reader for web content fetching; leave empty to use free tier'
+    jinaApiKeyHint: 'Used by Jina Reader for web content fetching; leave empty to use free tier',
+    testAi: 'Test Connection',
+    testAiLoading: 'Testing...',
+    testAiSuccess: 'Connection OK',
+    testAiFail: 'Connection Failed',
   };
 
   return (
@@ -302,6 +330,22 @@ export default function App() {
                 </button>
               </div>
               <small>{t.jinaApiKeyHint}</small>
+            </div>
+
+            <div className="test-ai-section">
+              <button
+                type="button"
+                className={`btn-test-ai ${testAiResult ? (testAiResult.success ? 'success' : 'fail') : ''}`}
+                onClick={handleTestAi}
+                disabled={testAiLoading || !settings.aiApiKey || !settings.aiApiUrl || !settings.aiModel}
+              >
+                {testAiLoading ? t.testAiLoading : t.testAi}
+              </button>
+              {testAiResult && (
+                <div className={`test-ai-result ${testAiResult.success ? 'success' : 'fail'}`}>
+                  <strong>{testAiResult.success ? t.testAiSuccess : t.testAiFail}:</strong> {testAiResult.message}
+                </div>
+              )}
             </div>
           </div>
         </section>

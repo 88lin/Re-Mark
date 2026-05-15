@@ -150,19 +150,20 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    const actions: Record<string, () => Promise<void>> = {
+    const actions: Record<string, () => Promise<any>> = {
       upload: () => handleUpload(!!msg.force, 'manual'),
       download: handleDownload,
       clear: handleClear,
       enrich: handleEnrich,
       retryFailed: handleRetryFailed,
-      refresh: handleRefresh
+      refresh: handleRefresh,
+      testAi: handleTestAi
     };
 
     const action = actions[msg.action];
     if (action) {
       action()
-        .then(() => sendResponse({ success: true }))
+        .then(result => sendResponse({ success: true, ...result }))
         .catch(err => {
           const e = err as any;
           sendResponse({
@@ -427,23 +428,16 @@ async function handleRetryFailed() {
 
   await ensureHostPermission(settings.webUrl);
 
-  try {
-    const { runRetryFailedStep } = await import('../utils/enrich');
-    const aiConfig = {
-      aiApiKey: settings.aiApiKey,
-      aiApiUrl: settings.aiApiUrl,
-      aiModel: settings.aiModel,
-      jinaApiKey: settings.jinaApiKey
-    };
-    const result = await runRetryFailedStep(settings.webUrl, settings.apiSecret, aiConfig);
-    await showNotification(
-      locale.enrichCompletedTitle,
-      `Reset & enriched: ${result.processed ?? 0} processed, ${result.remaining ?? 0} remaining`
-    );
-  } catch (err) {
-    await showNotification(locale.enrichFailedTitle, err instanceof Error ? err.message : String(err));
-    throw err;
-  }
+  const existingJob = await getEnrichJob();
+  const now = Date.now();
+  const nextJob = existingJob && (existingJob.state === 'running' || existingJob.state === 'paused')
+    ? { ...startEnrichJobStep(existingJob, now), resetFailed: true, failedCount: 0, processed: 0 }
+    : createEnrichJob(now, true);
+
+  await setEnrichJob(nextJob);
+  await browser.alarms.clear(ENRICH_ALARM_NAME);
+  await scheduleNextEnrichStep(0);
+  await showNotification(locale.retryFailedStartedTitle, locale.retryFailedStartedMessage);
 }
 
 async function runEnrichJobStep() {
@@ -487,7 +481,7 @@ async function runEnrichJobStepUnsafe() {
       aiModel: settings.aiModel,
       jinaApiKey: settings.jinaApiKey
     };
-    const result = await runEnrichStep(settings.webUrl, settings.apiSecret, aiConfig);
+    const result = await runEnrichStep(settings.webUrl, settings.apiSecret, aiConfig, startedJob.resetFailed);
     const nextJob = finishEnrichJobStep(startedJob, result, Date.now(), ENRICH_STEP_DELAY_MS);
     await setEnrichJob(nextJob);
 
@@ -580,4 +574,17 @@ async function ensureHostPermission(webUrl: string) {
 
   const granted = await browser.permissions.request({ origins: [origin] });
   if (!granted) throw new Error(locale.permissionDenied);
+}
+
+async function handleTestAi() {
+  const settings = await getSettings();
+  const { testAiConnection } = await import('../utils/enrich');
+  const result = await testAiConnection({
+    aiApiKey: settings.aiApiKey,
+    aiApiUrl: settings.aiApiUrl,
+    aiModel: settings.aiModel,
+    jinaApiKey: settings.jinaApiKey
+  });
+  if (!result.success) throw new Error(result.message);
+  return { message: result.message };
 }

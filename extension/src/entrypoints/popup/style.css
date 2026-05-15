@@ -513,6 +513,21 @@ button {
   font-size: 0.9rem;
 }
 
+.retry-count {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  margin-left: 6px;
+}
+
 .action-card.retry-failed:hover:not(:disabled),
 .action-card.retry-failed:focus-visible {
   background: var(--accent);

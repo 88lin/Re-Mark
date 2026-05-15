@@ -100,12 +100,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const result = await enrichItemsLoop({ aiApiKey, aiApiUrl, aiModel, jinaApiKey, resetFailed });
 
-    console.log(`[3] Enrichment completed: ${result.processed} processed, ${result.remaining} remaining, batches: ${result.batches}, timedOut: ${result.timedOut}`);
+    console.log(`[3] Enrichment completed: ${result.processed} processed, ${result.remaining} remaining, ${result.failedCount} failed, batches: ${result.batches}, timedOut: ${result.timedOut}`);
 
     return new Response(JSON.stringify({
       success: true,
       processed: result.processed,
       remaining: result.remaining,
+      failedCount: result.failedCount,
       completed: result.remaining === 0,
       batches: result.batches,
       timedOut: result.timedOut
@@ -168,7 +169,7 @@ interface EnrichLoopConfig {
   resetFailed: boolean;
 }
 
-async function enrichItemsLoop(config: EnrichLoopConfig): Promise<{ processed: number; remaining: number; batches: number; timedOut: boolean }> {
+async function enrichItemsLoop(config: EnrichLoopConfig): Promise<{ processed: number; remaining: number; failedCount: number; batches: number; timedOut: boolean }> {
   console.log('[enrichItemsLoop] Starting enrichment loop...', { resetFailed: config.resetFailed });
 
   const githubToken = import.meta.env.GITHUB_TOKEN;
@@ -218,6 +219,10 @@ async function enrichItemsLoop(config: EnrichLoopConfig): Promise<{ processed: n
     !(item.aiFailed && item.aiFailed.attempts >= MAX_FAIL_ATTEMPTS)
   ).length;
 
+  const countFailed = () => data.items.filter((item: any) =>
+    item.aiFailed && item.aiFailed.attempts >= MAX_FAIL_ATTEMPTS
+  ).length;
+
   while (true) {
     const unprocessedItems = data.items.filter((item: any) =>
       item.url &&
@@ -259,6 +264,7 @@ async function enrichItemsLoop(config: EnrichLoopConfig): Promise<{ processed: n
   return {
     processed: totalProcessed,
     remaining,
+    failedCount: countFailed(),
     batches,
     timedOut
   };

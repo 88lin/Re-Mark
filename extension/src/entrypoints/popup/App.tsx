@@ -86,11 +86,14 @@ const locales = {
     searching: 'Searching...',
     noSearchResults: 'No matching bookmarks',
     searchFailed: 'Failed to search bookmarks',
-    enrichRunning: (processed: number, remaining: number) => `Enriching ${processed} done, ${remaining} left`,
-    enrichPaused: (remaining: number) => `Enrich paused, ${remaining} left`,
+    enrichRunning: (processed: number, remaining: number, failedCount: number) =>
+      `Enriching: ${processed} done, ${remaining} left${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+    enrichPaused: (remaining: number, failedCount: number) =>
+      `Enrich paused, ${remaining} left${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
     enrichCompleted: (processed: number) => `Enrich complete, ${processed} done`,
     enrichFailed: 'Enrich failed',
-    retryFailed: 'Retry Failed',
+    retryFailed: 'Retry Failed Bookmarks',
+    retryFailedDesc: (count: number) => `Reset ${count} failed bookmarks and re-enrich`,
   },
   zh: {
     subtitle: '普通的高级书签',
@@ -138,11 +141,14 @@ const locales = {
     searching: '搜索中...',
     noSearchResults: '没有匹配的书签',
     searchFailed: '搜索书签失败',
-    enrichRunning: (processed: number, remaining: number) => `富化中：已处理 ${processed}，剩余 ${remaining}`,
-    enrichPaused: (remaining: number) => `富化已暂停，剩余 ${remaining}`,
+    enrichRunning: (processed: number, remaining: number, failedCount: number) =>
+      `富化中：已处理 ${processed}，剩余 ${remaining}${failedCount > 0 ? `，失败 ${failedCount}` : ''}`,
+    enrichPaused: (remaining: number, failedCount: number) =>
+      `富化已暂停，剩余 ${remaining}${failedCount > 0 ? `，失败 ${failedCount}` : ''}`,
     enrichCompleted: (processed: number) => `富化完成，已处理 ${processed}`,
     enrichFailed: '富化失败',
-    retryFailed: '重试失败',
+    retryFailed: '重试失败书签',
+    retryFailedDesc: (count: number) => `重置 ${count} 个失败书签并重新富化`,
   }
 };
 
@@ -273,8 +279,9 @@ export default function App() {
 
   function getEnrichStatusText() {
     if (!enrichJob || enrichJob.state === 'idle') return '';
-    if (enrichJob.state === 'running') return t.enrichRunning(enrichJob.processed, enrichJob.remaining);
-    if (enrichJob.state === 'paused') return t.enrichPaused(enrichJob.remaining);
+    const failedCount = enrichJob.failedCount ?? 0;
+    if (enrichJob.state === 'running') return t.enrichRunning(enrichJob.processed, enrichJob.remaining, failedCount);
+    if (enrichJob.state === 'paused') return t.enrichPaused(enrichJob.remaining, failedCount);
     if (enrichJob.state === 'completed') return t.enrichCompleted(enrichJob.processed);
     return enrichJob.lastError ? `${t.enrichFailed}: ${enrichJob.lastError}` : t.enrichFailed;
   }
@@ -542,10 +549,11 @@ export default function App() {
         {hasWebIntegration && renderActionButton('enrich')}
       </div>
 
-      {hasWebIntegration && (
+      {hasWebIntegration && (enrichJob?.failedCount ?? 0) > 0 && (
         <button className="action-card full-width retry-failed" onClick={() => handleAction('retryFailed')} disabled={loading}>
           <span className="action-icon"><Icons.RetryFailed /></span>
           <span>{t.retryFailed}</span>
+          {enrichJob.failedCount > 0 && <span className="retry-count">{enrichJob.failedCount}</span>}
         </button>
       )}
 
